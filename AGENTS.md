@@ -5,11 +5,11 @@
 
 ## App Identity
 
-**DClaw Doc** is a vertical SaaS application built on the DClaw Stack.
+**DClaw {APP_NAME}** is a vertical SaaS application built on the DClaw Stack.
 
-- **Backend Port:** `8107` (FastAPI)
-- **Frontend Port:** `3020` (Next.js)
-- **Database:** `dclaw_doc` (PostgreSQL)
+- **Backend Port:** `{BACKEND_PORT}` (FastAPI)
+- **Frontend Port:** `{FRONTEND_PORT}` (Next.js)
+- **Database:** `{DB_NAME}` (PostgreSQL)
 - **Base API Path:** `/api/v1`
 
 ## Architecture Lock — DO NOT CHANGE
@@ -35,7 +35,7 @@ These are non-negotiable. If an agent suggests changing them, reject it.
 
 ### Docker
 - **Backend:** `python:3.11-slim`, non-root `appuser`, healthcheck with `python urllib.request.urlopen()`
-- **Frontend:** `node:20-alpine`, port `3020`
+- **Frontend:** `node:20-alpine`, port `{FRONTEND_PORT}`
 - **Compose:** container port MUST match `EXPOSE`/`ENV PORT`
 
 ## Directory Structure
@@ -90,6 +90,8 @@ These are non-negotiable. If an agent suggests changing them, reject it.
 
 The scaffold includes working UI components in `frontend/src/components/ui/`. **Use these directly.** Do NOT install shadcn CLI or `@base-ui/react`.
 
+**Required dependency:** `tailwindcss-animate` must be in `package.json` dependencies (not devDependencies) because `tailwind.config.ts` imports it via `plugins: [require("tailwindcss-animate")]`.
+
 Available components:
 - `Button` — variants: default, destructive, outline, secondary, ghost, link
 - `Card` — Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter
@@ -120,12 +122,14 @@ Available components:
 | **Deleting `.github/workflows/ci.yml`** | No CI runs, no quality gate | Leave CI workflow intact |
 | **Missing `src/lib/utils.ts`** | Pre-built UI components fail to import `cn()` | Already in scaffold — do NOT delete |
 | **Using `MappedAsDataclass` in `Base`** | Relationship/foreign-key sync conflicts on flush | Use plain `DeclarativeBase` only |
+| **`default_factory` in `mapped_column()`** | SQLAlchemy interprets it as dataclass config; throws `ArgumentError` on plain `DeclarativeBase` | Use `default=` with a callable (e.g., `default=uuid.uuid4`) |
 | **Timezone-aware `datetime` in models** | `DataError` with `TIMESTAMP WITHOUT TIME ZONE` | Use `utc_now()` from `app.core.utils` or `datetime.now(timezone.utc).replace(tzinfo=None)` |
 
 ## Database Rules
 
 1. All models MUST inherit from `Base` in `app.models.base`
 2. All models MUST use `Mapped[...]` and `mapped_column()`
+3. **Never use `default_factory=` in `mapped_column()`** — use `default=` instead
 3. Relationships MUST specify `lazy="selectin"`
 4. All new tables MUST get an alembic migration
 5. Use `ondelete="CASCADE"` for child tables
