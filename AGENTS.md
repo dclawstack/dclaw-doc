@@ -5,11 +5,11 @@
 
 ## App Identity
 
-**DClaw {APP_NAME}** is a vertical SaaS application built on the DClaw Stack.
+**DClaw Doc** is a vertical SaaS application built on the DClaw Stack.
 
-- **Backend Port:** `{BACKEND_PORT}` (FastAPI)
-- **Frontend Port:** `{FRONTEND_PORT}` (Next.js)
-- **Database:** `{DB_NAME}` (PostgreSQL)
+- **Backend Port:** `8019` (FastAPI)
+- **Frontend Port:** `3019` (Next.js)
+- **Database:** `dclaw_doc` (PostgreSQL)
 - **Base API Path:** `/api/v1`
 
 ## Architecture Lock — DO NOT CHANGE
@@ -35,13 +35,13 @@ These are non-negotiable. If an agent suggests changing them, reject it.
 
 ### Docker
 - **Backend:** `python:3.11-slim`, non-root `appuser`, healthcheck with `python urllib.request.urlopen()`
-- **Frontend:** `node:20-alpine`, port `{FRONTEND_PORT}`
+- **Frontend:** `node:20-alpine`, port `3019`
 - **Compose:** container port MUST match `EXPOSE`/`ENV PORT`
 
 ## Directory Structure
 
 ```
-{APP_NAME}/
+Doc/
 ├── backend/
 │   ├── app/
 │   │   ├── api/
