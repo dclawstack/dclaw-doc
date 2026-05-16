@@ -1,5 +1,8 @@
 # DClaw Doc — v1.2 Feature Roadmap
 
+> 📘 **REVISED PRD v2.3 available:** See `REVISED-PRD.md` for complete gap analysis, current state, and full feature roadmap.
+
+
 > Based on: Y Combinator vertical SaaS principles, trending GitHub repos (onlyoffice, collabora), AI product research (Notion, Coda, Google Docs AI, Microsoft Copilot)
 
 ## Pre-Flight Checklist
