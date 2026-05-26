@@ -3,6 +3,13 @@
 > **The single source of truth for new DClaw app development.**
 > Clone this repo, rename it, fill in your `PRODUCT-SPEC.md`, and hand it to your coding agents.
 
+## App Identity (this repo)
+
+- **App:** `dclaw-doc`
+- **Backend Port:** `8107`
+- **Frontend Port:** `3020`
+- **Database:** `dclaw_doc`
+
 ## What This Is
 
 This scaffold contains the **complete boilerplate** for any DClaw vertical SaaS app:
@@ -62,6 +69,7 @@ Keep `pytest-asyncio==0.24.0` pinned in `requirements.txt`. v1.3.0 breaks fixtur
 | dclaw-crm | 8095 | 3006 | dclaw_crm |
 | dclaw-finance | 8096 | 3007 | dclaw_finance |
 | dclaw-hr | 8097 | 3008 | dclaw_hr |
+| dclaw-doc | 8107 | 3020 | dclaw_doc |
 | **TBD #9** | **8098** | **3009** | **dclaw_xxx** |
 | **TBD #10** | **8100** | **3010** | **dclaw_xxx** |
 
@@ -93,3 +101,8 @@ Keep `pytest-asyncio==0.24.0` pinned in `requirements.txt`. v1.3.0 breaks fixtur
 - `frontend/src/components/ui/*.tsx` — Pre-built components (use as-is)
 - `requirements.txt` — Keep `pytest-asyncio==0.24.0` pinned
 - `.github/workflows/ci.yml` — Do not delete
+
+## Code Manager
+
+- **Name:** Tharuni Dayara
+- **Email:** tharunidayara@gmail.com

@@ -7,8 +7,8 @@
 
 **DClaw Doc** is a vertical SaaS application built on the DClaw Stack.
 
-- **Backend Port:** `8019` (FastAPI)
-- **Frontend Port:** `3019` (Next.js)
+- **Backend Port:** `8107` (FastAPI)
+- **Frontend Port:** `3020` (Next.js)
 - **Database:** `dclaw_doc` (PostgreSQL)
 - **Base API Path:** `/api/v1`
 
@@ -35,7 +35,7 @@ These are non-negotiable. If an agent suggests changing them, reject it.
 
 ### Docker
 - **Backend:** `python:3.11-slim`, non-root `appuser`, healthcheck with `python urllib.request.urlopen()`
-- **Frontend:** `node:20-alpine`, port `3019`
+- **Frontend:** `node:20-alpine`, port `3020`
 - **Compose:** container port MUST match `EXPOSE`/`ENV PORT`
 
 ## Directory Structure
