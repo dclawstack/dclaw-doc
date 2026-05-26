@@ -39,6 +39,8 @@ venv/
 .coverage
 htmlcov/
 
-# Alembic
-alembic/versions/*.py
-!alembic/versions/.gitkeep
+# SQLite local dev DB (do NOT commit — schema is in alembic/versions/)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal

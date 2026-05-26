@@ -7,7 +7,9 @@ class Settings(BaseSettings):
     app_env: str = "dev"
     debug: bool = True
 
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/dclaw_doc"
+    database_url: str = "sqlite+aiosqlite:///./dclaw_doc.db"
+    # Override for production / CI:
+    # postgresql+asyncpg://postgres:postgres@localhost:5432/dclaw_doc
 
     secret_key: str = "change-me-in-production"
     access_token_expire_minutes: int = 60
