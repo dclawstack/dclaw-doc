@@ -59,7 +59,7 @@ export default function UsagePage() {
               Per-day token usage for this workspace. Cost ≈ tokens × model price.
             </p>
           </div>
-          <Link href="/" className="text-sm text-indigo-600 hover:underline">
+          <Link href="/dashboard" className="text-sm text-indigo-600 hover:underline">
             ← Dashboard
           </Link>
         </header>

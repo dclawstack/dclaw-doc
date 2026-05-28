@@ -76,7 +76,7 @@ export default function JobsPage() {
               Long-running tasks run on the worker queue. Watch their status here.
             </p>
           </div>
-          <Link href="/" className="text-sm text-indigo-600 hover:underline">
+          <Link href="/dashboard" className="text-sm text-indigo-600 hover:underline">
             ← Dashboard
           </Link>
         </header>

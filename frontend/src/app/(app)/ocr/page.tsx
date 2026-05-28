@@ -83,7 +83,7 @@ export default function OCRPage() {
               Upload an image; transcribe to text and optionally save as a document.
             </p>
           </div>
-          <Link href="/" className="text-sm text-indigo-600 hover:underline">
+          <Link href="/dashboard" className="text-sm text-indigo-600 hover:underline">
             ← Dashboard
           </Link>
         </header>

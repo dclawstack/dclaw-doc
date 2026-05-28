@@ -113,7 +113,7 @@ export default function DocPage() {
 
   async function handleDelete() {
     await deleteDocument(id);
-    router.push("/");
+    router.push("/dashboard");
   }
 
   if (error) {
@@ -121,7 +121,7 @@ export default function DocPage() {
       <main className="min-h-screen bg-gray-50 p-8">
         <div className="mx-auto max-w-3xl space-y-4">
           <p className="text-sm text-red-600">Error: {error}</p>
-          <Link href="/" className="text-indigo-600 hover:underline">
+          <Link href="/dashboard" className="text-indigo-600 hover:underline">
             ← Back to dashboard
           </Link>
         </div>
@@ -140,7 +140,7 @@ export default function DocPage() {
   return (
     <main className="min-h-screen bg-gray-50 p-8">
       <div className="mx-auto max-w-3xl space-y-6">
-        <Link href="/" className="text-sm text-indigo-600 hover:underline">
+        <Link href="/dashboard" className="text-sm text-indigo-600 hover:underline">
           ← Back to dashboard
         </Link>
 
