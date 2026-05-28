@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TemplatesPicker } from "@/components/templates/picker";
 import {
   DocumentRecord,
   createDocument,
@@ -63,12 +64,19 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gray-50 p-8">
       <div className="mx-auto max-w-5xl space-y-6">
-        <header className="space-y-1">
-          <h1 className="text-3xl font-bold">DClaw Doc</h1>
-          <p className="text-sm text-gray-600">
-            AI-native document workspace · backend on :8107
-          </p>
+        <header className="flex items-start justify-between gap-2">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold">DClaw Doc</h1>
+            <p className="text-sm text-gray-600">
+              AI-native document workspace · backend on :8107
+            </p>
+          </div>
+          <Link href="/usage" className="text-sm text-indigo-600 hover:underline">
+            AI usage →
+          </Link>
         </header>
+
+        <TemplatesPicker />
 
         <Card>
           <CardHeader>

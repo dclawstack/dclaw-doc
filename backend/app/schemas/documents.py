@@ -30,6 +30,7 @@ class DocumentRead(BaseModel):
     content_md: str
     content_json: str
     status: str
+    sensitivity: str = "public"
     created_at: datetime
     updated_at: datetime
 

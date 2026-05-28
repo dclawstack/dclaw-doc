@@ -38,6 +38,7 @@ export interface DocumentRecord {
   content_md: string;
   content_json: string;
   status: string;
+  sensitivity?: "public" | "confidential" | "pii" | "phi";
   created_at: string;
   updated_at: string;
 }
@@ -118,12 +119,12 @@ export interface CopilotStreamHandlers {
   onError?: (error: Error) => void;
 }
 
-export async function streamDocChat(
-  payload: { prompt: string; document_id?: string; selection?: string; mode?: CopilotMode },
+async function consumeSseStream(
+  url: string,
+  payload: Record<string, unknown>,
   handlers: CopilotStreamHandlers,
   signal?: AbortSignal,
 ): Promise<void> {
-  const url = `${API_BASE}/api/v1/ai/doc-chat`;
   try {
     const response = await fetch(url, {
       method: "POST",
@@ -180,6 +181,213 @@ export async function streamDocChat(
     if ((err as { name?: string }).name === "AbortError") return;
     handlers.onError?.(err instanceof Error ? err : new Error(String(err)));
   }
+}
+
+export async function streamDocChat(
+  payload: { prompt: string; document_id?: string; selection?: string; mode?: CopilotMode },
+  handlers: CopilotStreamHandlers,
+  signal?: AbortSignal,
+): Promise<void> {
+  return consumeSseStream(`${API_BASE}/api/v1/ai/doc-chat`, payload, handlers, signal);
+}
+
+export async function streamWorkspaceChat(
+  payload: { prompt: string; top_k?: number },
+  handlers: CopilotStreamHandlers,
+  signal?: AbortSignal,
+): Promise<void> {
+  return consumeSseStream(`${API_BASE}/api/v1/ai/chat`, payload, handlers, signal);
+}
+
+// --- Comments ---
+
+export interface CommentRecord {
+  id: string;
+  document_id: string;
+  parent_id: string | null;
+  anchor_block_id: string | null;
+  body: string;
+  author_id: string;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function listComments(docId: string) {
+  return fetchJson<CommentRecord[]>(`/api/v1/documents/${docId}/comments`);
+}
+
+export async function createComment(
+  docId: string,
+  payload: { body: string; parent_id?: string; anchor_block_id?: string },
+) {
+  return fetchJson<CommentRecord>(`/api/v1/documents/${docId}/comments`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateComment(commentId: string, payload: { body?: string; resolved?: boolean }) {
+  return fetchJson<CommentRecord>(`/api/v1/comments/${commentId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteComment(commentId: string) {
+  return fetchJson<void>(`/api/v1/comments/${commentId}`, { method: "DELETE" });
+}
+
+// --- Permissions + sharing links ---
+
+export type DocRole = "viewer" | "commenter" | "editor" | "owner";
+
+export interface PermissionRecord {
+  id: string;
+  document_id: string;
+  principal_type: "user" | "link";
+  principal_id: string;
+  role: DocRole;
+  created_at: string;
+}
+
+export interface SharingLinkRecord {
+  id: string;
+  document_id: string;
+  token: string;
+  role: DocRole;
+  expires_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+}
+
+export async function listPermissions(docId: string) {
+  return fetchJson<PermissionRecord[]>(`/api/v1/documents/${docId}/permissions`);
+}
+
+export async function grantPermission(
+  docId: string,
+  payload: { principal_type: "user" | "link"; principal_id: string; role: DocRole },
+) {
+  return fetchJson<PermissionRecord>(`/api/v1/documents/${docId}/permissions`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function revokePermission(docId: string, permissionId: string) {
+  return fetchJson<void>(`/api/v1/documents/${docId}/permissions/${permissionId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function listSharingLinks(docId: string) {
+  return fetchJson<SharingLinkRecord[]>(`/api/v1/documents/${docId}/sharing-links`);
+}
+
+export async function createSharingLink(docId: string, payload: { role: DocRole; expires_at?: string | null }) {
+  return fetchJson<SharingLinkRecord>(`/api/v1/documents/${docId}/sharing-links`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function revokeSharingLink(linkId: string) {
+  return fetchJson<void>(`/api/v1/sharing-links/${linkId}`, { method: "DELETE" });
+}
+
+// --- Sensitivity + notarization + audit ---
+
+export type Sensitivity = "public" | "confidential" | "pii" | "phi";
+
+export async function setSensitivity(docId: string, sensitivity: Sensitivity) {
+  return fetchJson<{ sensitivity: Sensitivity }>(`/api/v1/documents/${docId}/sensitivity`, {
+    method: "PATCH",
+    body: JSON.stringify({ sensitivity }),
+  });
+}
+
+export interface NotarizationRecord {
+  id: string;
+  document_id: string;
+  version_num: number;
+  content_hash: string;
+  signature: string;
+  notarized_by: string;
+  created_at: string;
+}
+
+export async function notarizeDocument(docId: string) {
+  return fetchJson<NotarizationRecord>(`/api/v1/documents/${docId}/notarize`, {
+    method: "POST",
+  });
+}
+
+export interface NotarizationVerify {
+  valid: boolean;
+  notarization_id: string;
+  expected_signature: string;
+  current_content_hash: string;
+}
+
+export async function verifyNotarization(docId: string) {
+  try {
+    return await fetchJson<NotarizationVerify>(`/api/v1/documents/${docId}/notarization`);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
+// --- Templates ---
+
+export interface TemplateRecord {
+  id: string;
+  workspace_id: string;
+  name: string;
+  description: string | null;
+  content_md: string;
+  variables_schema: string; // JSON
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TemplateVariableSpec {
+  name: string;
+  label?: string;
+  default?: string;
+}
+
+export async function listTemplates() {
+  return fetchJson<TemplateRecord[]>(`/api/v1/templates`);
+}
+
+export async function renderTemplate(
+  templateId: string,
+  payload: { title?: string; variables?: Record<string, string> },
+) {
+  return fetchJson<DocumentRecord>(`/api/v1/templates/${templateId}/render`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+// --- Usage ---
+
+export interface UsageRow {
+  workspace_id: string;
+  date: string;
+  provider: string;
+  model: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  requests: number;
+  updated_at: string;
+}
+
+export async function listUsage(since?: string) {
+  const qs = since ? `?since=${encodeURIComponent(since)}` : "";
+  return fetchJson<UsageRow[]>(`/api/v1/usage${qs}`);
 }
 
 export { ApiError };

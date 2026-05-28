@@ -7,8 +7,10 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { CommentsPanel } from "@/components/comments/panel";
 import { CopilotPanel } from "@/components/copilot/panel";
 import { RichEditor } from "@/components/editor/rich-editor";
+import { SharingCard } from "@/components/sharing/sharing-card";
 import {
   DocumentRecord,
   DocumentVersionSummary,
@@ -163,6 +165,10 @@ export default function DocPage() {
             </div>
           </CardContent>
         </Card>
+
+        <SharingCard documentId={id} initialSensitivity={doc.sensitivity} />
+
+        <CommentsPanel documentId={id} />
 
         {versions.length > 0 && (
           <Card>
