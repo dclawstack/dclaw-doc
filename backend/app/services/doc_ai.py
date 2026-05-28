@@ -1,20 +1,22 @@
 """Doc-copilot orchestration.
 
-Given an optional document + user prompt + mode, produce a streaming
-response built from the configured LLM provider. Document context is
-injected as the system prompt so the model can reason about it.
+Builds a streaming response from the configured LLM provider, optionally
+grounded in RAG hits. Citations are streamed alongside tokens so the UI
+can render footnotes that point at the exact source chunks.
 """
 from __future__ import annotations
 
 import json
 import uuid
+from dataclasses import asdict
 from typing import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
+from app.core.config import is_enabled, settings
 from app.repositories.documents import DocumentRepository
 from app.services.llm import LLMStreamChunk, get_provider
+from app.services.rag import SearchHit, hybrid_search
 
 
 SYSTEM_PROMPTS = {
@@ -36,19 +38,24 @@ SYSTEM_PROMPTS = {
     ),
     "chat": (
         "You are a doc-aware copilot. Use any provided document context to "
-        "answer the user's question. If the context doesn't cover it, say so."
+        "answer the user's question. When you draw on context, cite the "
+        "[#] markers in line. If the context doesn't cover it, say so."
     ),
 }
 
 
 def sse_event(event_type: str, payload: dict | str) -> str:
-    """Format a Server-Sent Events frame.
-
-    Always sends a single ``data:`` line carrying JSON.
-    """
     if isinstance(payload, str):
         payload = {"content": payload}
-    return f"event: {event_type}\ndata: {json.dumps(payload)}\n\n"
+    return f"event: {event_type}\ndata: {json.dumps(payload, default=str)}\n\n"
+
+
+def _format_citations_for_prompt(hits: list[SearchHit]) -> str:
+    lines = []
+    for idx, hit in enumerate(hits, start=1):
+        snippet = hit.text.strip().replace("\n", " ")[:400]
+        lines.append(f"[{idx}] {hit.document_title} :: {snippet}")
+    return "\n".join(lines)
 
 
 async def stream_doc_chat(
@@ -59,14 +66,16 @@ async def stream_doc_chat(
     selection: str | None,
     prompt: str,
     mode: str,
+    use_rag: bool = True,
 ) -> AsyncIterator[str]:
     """Stream SSE frames for a doc-chat request.
 
     Frame sequence:
-      ``event: meta`` — model + provider name (first frame)
-      ``event: token`` × N — content deltas
-      ``event: usage`` — final token counts (best-effort)
-      ``event: done`` — terminal
+      ``meta``       — model + provider name (first frame)
+      ``citations``  — RAG hits with chunk metadata (when use_rag and hits exist)
+      ``token`` × N  — content deltas
+      ``usage``      — final token counts (best-effort)
+      ``done``       — terminal
     """
     system = SYSTEM_PROMPTS.get(mode, SYSTEM_PROMPTS["chat"])
 
@@ -80,12 +89,34 @@ async def stream_doc_chat(
                 f"Current document content:\n{doc.content_md or '(empty)'}"
             )
 
+    hits: list[SearchHit] = []
+    if use_rag and is_enabled("rag"):
+        try:
+            hits = await hybrid_search(db, workspace_id=workspace_id, query=prompt)
+        except Exception:  # noqa: BLE001 — RAG is best-effort grounding
+            hits = []
+
+    if hits:
+        system = (
+            f"{system}\n\n---\nRelevant context (cite with [#]):\n"
+            f"{_format_citations_for_prompt(hits)}"
+        )
+
     user_prompt = prompt
     if selection:
         user_prompt = f"Selected text:\n{selection}\n\nInstruction: {prompt}"
 
     provider = get_provider()
-    yield sse_event("meta", {"provider": provider.name, "model": settings.ai_model})
+    yield sse_event(
+        "meta",
+        {"provider": provider.name, "model": settings.ai_model, "rag_hits": len(hits)},
+    )
+
+    if hits:
+        yield sse_event(
+            "citations",
+            {"citations": [asdict(h) for h in hits]},
+        )
 
     final_chunk: LLMStreamChunk | None = None
     async for chunk in provider.stream(system=system, prompt=user_prompt, model=settings.ai_model):

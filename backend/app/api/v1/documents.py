@@ -20,6 +20,7 @@ from app.schemas.documents import (
     DocumentRead,
     DocumentUpdate,
 )
+from app.services.rag import reindex_document
 from app.services.versioning import has_content_changed, snapshot
 
 router = APIRouter()
@@ -41,7 +42,10 @@ async def create_document(
         content_json=payload.content_json,
         status=payload.status,
     )
-    return await repo.create(doc)
+    created = await repo.create(doc)
+    if is_enabled("rag") and created.content_md:
+        await reindex_document(db, created)
+    return created
 
 
 @router.get("", response_model=DocumentListResponse)
@@ -95,9 +99,13 @@ async def update_document(
         version_repo = DocumentVersionRepository(db)
         await snapshot(version_repo, document=doc, author_id=user.user_id)
 
+    content_changed = has_content_changed(doc, patch)
     for field, value in patch.items():
         setattr(doc, field, value)
-    return await repo.save(doc)
+    saved = await repo.save(doc)
+    if is_enabled("rag") and content_changed:
+        await reindex_document(db, saved)
+    return saved
 
 
 @router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)

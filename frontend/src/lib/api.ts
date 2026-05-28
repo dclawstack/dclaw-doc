@@ -100,8 +100,18 @@ export async function restoreDocumentVersion(id: string, versionNum: number) {
 
 export type CopilotMode = "rewrite" | "summarize" | "translate" | "explain" | "chat";
 
+export interface Citation {
+  document_id: string;
+  chunk_id: string;
+  ordinal: number;
+  text: string;
+  score: number;
+  document_title: string;
+}
+
 export interface CopilotStreamHandlers {
-  onMeta?: (meta: { provider: string; model: string }) => void;
+  onMeta?: (meta: { provider: string; model: string; rag_hits?: number }) => void;
+  onCitations?: (citations: Citation[]) => void;
   onToken?: (token: string) => void;
   onUsage?: (usage: { prompt_tokens: number | null; completion_tokens: number | null }) => void;
   onDone?: () => void;
@@ -154,7 +164,9 @@ export async function streamDocChat(
           continue;
         }
         if (event === "meta") {
-          handlers.onMeta?.(parsed as { provider: string; model: string });
+          handlers.onMeta?.(parsed as { provider: string; model: string; rag_hits?: number });
+        } else if (event === "citations" && Array.isArray(parsed.citations)) {
+          handlers.onCitations?.(parsed.citations as Citation[]);
         } else if (event === "token" && typeof parsed.content === "string") {
           handlers.onToken?.(parsed.content);
         } else if (event === "usage") {

@@ -44,3 +44,6 @@ htmlcov/
 *.db-journal
 *.db-shm
 *.db-wal
+
+# Eval harness output
+evals_report.json

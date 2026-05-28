@@ -7,11 +7,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_FEATURES: dict[str, bool] = {
     "ai_copilot": True,
-    "rag": False,
-    "comments": False,
+    "rag": True,
+    "comments": True,
     "versions": True,
-    "templates": False,
-    "exports": False,
+    "templates": True,
+    "exports": True,
+    "permissions": True,
+    "usage": True,
     "tracing": False,
 }
 
@@ -46,6 +48,12 @@ class Settings(BaseSettings):
     ollama_url: str = "http://localhost:11434"
     openrouter_api_key: str | None = None
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
+
+    # Embedding provider for RAG (1.5)
+    # "mock" (default; deterministic 128-d hash vectors, no setup),
+    # "ollama" (nomic-embed-text via local Ollama)
+    embedding_provider: str = "mock"
+    rag_top_k: int = 5
 
     # --- Feature flags (1.13) ---
     # Override via env: FEATURES='{"ai_copilot":true,"rag":true}'

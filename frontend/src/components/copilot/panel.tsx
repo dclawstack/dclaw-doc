@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CopilotMode, streamDocChat } from "@/lib/api";
+import { Citation, CopilotMode, streamDocChat } from "@/lib/api";
 
 const MODES: CopilotMode[] = ["chat", "summarize", "rewrite", "explain", "translate"];
 
@@ -17,7 +17,8 @@ export function CopilotPanel({ documentId, selection }: Props) {
   const [prompt, setPrompt] = useState("");
   const [mode, setMode] = useState<CopilotMode>("chat");
   const [response, setResponse] = useState("");
-  const [meta, setMeta] = useState<{ provider: string; model: string } | null>(null);
+  const [meta, setMeta] = useState<{ provider: string; model: string; rag_hits?: number } | null>(null);
+  const [citations, setCitations] = useState<Citation[]>([]);
   const [usage, setUsage] = useState<{ prompt_tokens: number | null; completion_tokens: number | null } | null>(null);
   const [streaming, setStreaming] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -31,10 +32,12 @@ export function CopilotPanel({ documentId, selection }: Props) {
     setResponse("");
     setMeta(null);
     setUsage(null);
+    setCitations([]);
     await streamDocChat(
       { prompt: prompt.trim(), document_id: documentId, selection, mode },
       {
         onMeta: setMeta,
+        onCitations: setCitations,
         onToken: (t) => setResponse((prev) => prev + t),
         onUsage: setUsage,
         onDone: () => setStreaming(false),
@@ -115,9 +118,31 @@ export function CopilotPanel({ documentId, selection }: Props) {
         </pre>
       )}
 
+      {citations.length > 0 && (
+        <div className="mt-3">
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            Citations
+          </h3>
+          <ol className="space-y-1 text-xs text-gray-700">
+            {citations.map((c, idx) => (
+              <li key={c.chunk_id} className="rounded border border-gray-100 px-2 py-1">
+                <span className="font-mono text-gray-500">[{idx + 1}]</span>{" "}
+                <span className="font-medium">{c.document_title}</span>{" "}
+                <span className="text-gray-400">· chunk {c.ordinal}</span>
+                <span className="ml-2 text-gray-400">
+                  score {c.score.toFixed(2)}
+                </span>
+                <p className="mt-1 line-clamp-3 text-gray-600">{c.text}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
       {usage && (
         <p className="mt-2 text-xs text-gray-500">
           tokens · in {usage.prompt_tokens ?? "?"} · out {usage.completion_tokens ?? "?"}
+          {meta?.rag_hits ? ` · rag ${meta.rag_hits}` : ""}
         </p>
       )}
     </section>
