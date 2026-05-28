@@ -80,4 +80,94 @@ export async function deleteDocument(id: string) {
   return fetchJson<void>(`/api/v1/documents/${id}`, { method: "DELETE" });
 }
 
+export interface DocumentVersionSummary {
+  version_num: number;
+  title: string;
+  author_id: string | null;
+  created_at: string;
+}
+
+export async function listDocumentVersions(id: string) {
+  return fetchJson<DocumentVersionSummary[]>(`/api/v1/documents/${id}/versions`);
+}
+
+export async function restoreDocumentVersion(id: string, versionNum: number) {
+  return fetchJson<DocumentRecord>(
+    `/api/v1/documents/${id}/versions/${versionNum}/restore`,
+    { method: "POST" },
+  );
+}
+
+export type CopilotMode = "rewrite" | "summarize" | "translate" | "explain" | "chat";
+
+export interface CopilotStreamHandlers {
+  onMeta?: (meta: { provider: string; model: string }) => void;
+  onToken?: (token: string) => void;
+  onUsage?: (usage: { prompt_tokens: number | null; completion_tokens: number | null }) => void;
+  onDone?: () => void;
+  onError?: (error: Error) => void;
+}
+
+export async function streamDocChat(
+  payload: { prompt: string; document_id?: string; selection?: string; mode?: CopilotMode },
+  handlers: CopilotStreamHandlers,
+  signal?: AbortSignal,
+): Promise<void> {
+  const url = `${API_BASE}/api/v1/ai/doc-chat`;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal,
+    });
+    if (!response.ok || !response.body) {
+      throw new ApiError(`AI stream failed: ${response.status}`, response.status);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let sep: number;
+      // SSE frames are separated by a blank line.
+      while ((sep = buffer.indexOf("\n\n")) !== -1) {
+        const frame = buffer.slice(0, sep);
+        buffer = buffer.slice(sep + 2);
+
+        let event = "message";
+        let dataLine = "";
+        for (const line of frame.split("\n")) {
+          if (line.startsWith("event:")) event = line.slice(6).trim();
+          else if (line.startsWith("data:")) dataLine += line.slice(5).trim();
+        }
+        if (!dataLine) continue;
+        let parsed: Record<string, unknown>;
+        try {
+          parsed = JSON.parse(dataLine);
+        } catch {
+          continue;
+        }
+        if (event === "meta") {
+          handlers.onMeta?.(parsed as { provider: string; model: string });
+        } else if (event === "token" && typeof parsed.content === "string") {
+          handlers.onToken?.(parsed.content);
+        } else if (event === "usage") {
+          handlers.onUsage?.(parsed as { prompt_tokens: number | null; completion_tokens: number | null });
+        } else if (event === "done") {
+          handlers.onDone?.();
+        }
+      }
+    }
+  } catch (err) {
+    if ((err as { name?: string }).name === "AbortError") return;
+    handlers.onError?.(err instanceof Error ? err : new Error(String(err)));
+  }
+}
+
 export { ApiError };

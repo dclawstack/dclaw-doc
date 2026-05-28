@@ -4,15 +4,23 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_workspace_id
+from app.core.auth import CurrentUser, current_user
+from app.core.config import is_enabled
 from app.core.database import get_db
 from app.models.document import Document
+from app.repositories.document_versions import DocumentVersionRepository
 from app.repositories.documents import DocumentRepository
+from app.schemas.document_versions import (
+    DocumentVersionRead,
+    DocumentVersionSummary,
+)
 from app.schemas.documents import (
     DocumentCreate,
     DocumentListResponse,
     DocumentRead,
     DocumentUpdate,
 )
+from app.services.versioning import has_content_changed, snapshot
 
 router = APIRouter()
 
@@ -74,13 +82,20 @@ async def update_document(
     doc_id: uuid.UUID,
     payload: DocumentUpdate,
     workspace_id: uuid.UUID = Depends(current_workspace_id),
+    user: CurrentUser = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Document:
     repo = DocumentRepository(db)
     doc = await repo.get_for_workspace(workspace_id, doc_id)
     if doc is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+
+    patch = payload.model_dump(exclude_unset=True)
+    if is_enabled("versions") and has_content_changed(doc, patch):
+        version_repo = DocumentVersionRepository(db)
+        await snapshot(version_repo, document=doc, author_id=user.user_id)
+
+    for field, value in patch.items():
         setattr(doc, field, value)
     return await repo.save(doc)
 
@@ -96,3 +111,72 @@ async def delete_document(
     if doc is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
     await repo.soft_delete(doc)
+
+
+# --- Versions (1.4) ---
+
+async def _require_doc(
+    doc_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+    db: AsyncSession,
+) -> Document:
+    repo = DocumentRepository(db)
+    doc = await repo.get_for_workspace(workspace_id, doc_id)
+    if doc is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    return doc
+
+
+@router.get("/{doc_id}/versions", response_model=list[DocumentVersionSummary])
+async def list_versions(
+    doc_id: uuid.UUID,
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    db: AsyncSession = Depends(get_db),
+):
+    if not is_enabled("versions"):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="versions disabled")
+    await _require_doc(doc_id, workspace_id, db)
+    return await DocumentVersionRepository(db).list_for_document(doc_id)
+
+
+@router.get("/{doc_id}/versions/{version_num}", response_model=DocumentVersionRead)
+async def get_version(
+    doc_id: uuid.UUID,
+    version_num: int,
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    db: AsyncSession = Depends(get_db),
+):
+    if not is_enabled("versions"):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="versions disabled")
+    await _require_doc(doc_id, workspace_id, db)
+    version = await DocumentVersionRepository(db).get(doc_id, version_num)
+    if version is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found")
+    return version
+
+
+@router.post("/{doc_id}/versions/{version_num}/restore", response_model=DocumentRead)
+async def restore_version(
+    doc_id: uuid.UUID,
+    version_num: int,
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    user: CurrentUser = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Restore the document to the contents of a prior version.
+
+    Snapshots the *current* state first so the restore itself is reversible.
+    """
+    if not is_enabled("versions"):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="versions disabled")
+    doc = await _require_doc(doc_id, workspace_id, db)
+    version_repo = DocumentVersionRepository(db)
+    target = await version_repo.get(doc_id, version_num)
+    if target is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found")
+
+    await snapshot(version_repo, document=doc, author_id=user.user_id)
+    doc.title = target.title
+    doc.content_md = target.content_md
+    doc.content_json = target.content_json
+    return await DocumentRepository(db).save(doc)

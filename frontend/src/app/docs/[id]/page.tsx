@@ -7,10 +7,14 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { CopilotPanel } from "@/components/copilot/panel";
 import {
   DocumentRecord,
+  DocumentVersionSummary,
   deleteDocument,
   getDocument,
+  listDocumentVersions,
+  restoreDocumentVersion,
   updateDocument,
 } from "@/lib/api";
 
@@ -22,6 +26,15 @@ export default function DocPage() {
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [versions, setVersions] = useState<DocumentVersionSummary[]>([]);
+
+  const loadVersions = useCallback(async () => {
+    try {
+      setVersions(await listDocumentVersions(id));
+    } catch {
+      // versions feature flag may be off — silently skip
+    }
+  }, [id]);
 
   const load = useCallback(async () => {
     try {
@@ -29,10 +42,11 @@ export default function DocPage() {
       setDoc(fetched);
       setTitle(fetched.title);
       setContent(fetched.content_md);
+      await loadVersions();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
-  }, [id]);
+  }, [id, loadVersions]);
 
   useEffect(() => {
     load();
@@ -43,11 +57,20 @@ export default function DocPage() {
     try {
       const updated = await updateDocument(id, { title, content_md: content });
       setDoc(updated);
+      await loadVersions();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleRestore(versionNum: number) {
+    const restored = await restoreDocumentVersion(id, versionNum);
+    setDoc(restored);
+    setTitle(restored.title);
+    setContent(restored.content_md);
+    await loadVersions();
   }
 
   async function handleDelete() {
@@ -83,6 +106,8 @@ export default function DocPage() {
           ← Back to dashboard
         </Link>
 
+        <CopilotPanel documentId={id} />
+
         <Card>
           <CardHeader>
             <CardTitle>Edit document</CardTitle>
@@ -114,6 +139,39 @@ export default function DocPage() {
             </p>
           </CardContent>
         </Card>
+
+        {versions.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Version history</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2 text-sm">
+                {versions.map((v) => (
+                  <li
+                    key={v.version_num}
+                    className="flex items-center justify-between gap-2 rounded border border-gray-100 px-3 py-2"
+                  >
+                    <div>
+                      <span className="font-medium">v{v.version_num}</span>
+                      <span className="ml-2 text-gray-700">{v.title}</span>
+                      <span className="ml-2 text-xs text-gray-500">
+                        {new Date(v.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRestore(v.version_num)}
+                    >
+                      Restore
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </main>
   );

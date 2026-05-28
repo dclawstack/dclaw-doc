@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import DEFAULT_WORKSPACE_SLUG
 from app.api.routes import health
-from app.api.v1 import documents, folders, workspaces
+from app.api.v1 import ai, documents, folders, workspaces
 from app.core.config import settings
 from app.core.database import engine, init_db
 from app.core.logging import configure_logging, get_logger
@@ -54,3 +54,4 @@ app.include_router(health.router, prefix="/health", tags=["health"])
 app.include_router(workspaces.router, prefix="/api/v1/workspaces", tags=["workspaces"])
 app.include_router(documents.router, prefix="/api/v1/documents", tags=["documents"])
 app.include_router(folders.router, prefix="/api/v1/folders", tags=["folders"])
+app.include_router(ai.router, prefix="/api/v1/ai", tags=["ai"])
