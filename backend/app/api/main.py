@@ -11,10 +11,14 @@ from app.api.v1 import (
     comments,
     compliance,
     documents,
+    embeds,
     exports,
     folders,
+    notarization,
     permissions,
+    preferences,
     templates,
+    translation,
     usage,
     workspaces,
 )
@@ -73,4 +77,8 @@ app.include_router(permissions.router, prefix="/api/v1", tags=["permissions"])
 app.include_router(exports.router, prefix="/api/v1", tags=["exports"])
 app.include_router(usage.router, prefix="/api/v1/usage", tags=["usage"])
 app.include_router(compliance.router, prefix="/api/v1", tags=["compliance"])
+app.include_router(notarization.router, prefix="/api/v1", tags=["notarization"])
+app.include_router(translation.router, prefix="/api/v1", tags=["translation"])
+app.include_router(embeds.router, prefix="/api/v1/embeds", tags=["embeds"])
+app.include_router(preferences.router, prefix="/api/v1/feedback", tags=["feedback"])
 app.include_router(ai.router, prefix="/api/v1/ai", tags=["ai"])
