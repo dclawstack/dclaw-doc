@@ -5,12 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import current_workspace_id
+from app.api.deps import authorized_doc, current_workspace_id
+from app.core.auth import CurrentUser, current_user
 from app.core.config import is_enabled
 from app.core.database import get_db
 from app.core.utils import utc_now
 from app.models.permission import DocumentPermission, SharingLink
-from app.repositories.documents import DocumentRepository
 from app.repositories.permissions import PermissionRepository, SharingLinkRepository
 from app.schemas.permissions import (
     PermissionGrant,
@@ -30,21 +30,15 @@ def _require_enabled() -> None:
         )
 
 
-async def _require_doc(doc_id: uuid.UUID, workspace_id: uuid.UUID, db: AsyncSession):
-    doc = await DocumentRepository(db).get_for_workspace(workspace_id, doc_id)
-    if doc is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
-    return doc
-
-
 @router.get("/documents/{doc_id}/permissions", response_model=list[PermissionRead])
 async def list_permissions(
     doc_id: uuid.UUID,
     workspace_id: uuid.UUID = Depends(current_workspace_id),
+    user: CurrentUser = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ):
     _require_enabled()
-    await _require_doc(doc_id, workspace_id, db)
+    await authorized_doc("viewer", doc_id, workspace_id, user, db)
     return await PermissionRepository(db).list_for_document(doc_id)
 
 
@@ -57,10 +51,11 @@ async def grant_permission(
     doc_id: uuid.UUID,
     payload: PermissionGrant,
     workspace_id: uuid.UUID = Depends(current_workspace_id),
+    user: CurrentUser = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ):
     _require_enabled()
-    await _require_doc(doc_id, workspace_id, db)
+    await authorized_doc("owner", doc_id, workspace_id, user, db)
     repo = PermissionRepository(db)
 
     existing = await repo.find(doc_id, payload.principal_type, payload.principal_id)
@@ -91,10 +86,11 @@ async def revoke_permission(
     doc_id: uuid.UUID,
     permission_id: uuid.UUID,
     workspace_id: uuid.UUID = Depends(current_workspace_id),
+    user: CurrentUser = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ):
     _require_enabled()
-    await _require_doc(doc_id, workspace_id, db)
+    await authorized_doc("owner", doc_id, workspace_id, user, db)
     repo = PermissionRepository(db)
     perm = await repo.get_by_id(permission_id)
     if perm is None or perm.document_id != doc_id:
@@ -113,10 +109,11 @@ async def create_sharing_link(
     doc_id: uuid.UUID,
     payload: SharingLinkCreate,
     workspace_id: uuid.UUID = Depends(current_workspace_id),
+    user: CurrentUser = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ):
     _require_enabled()
-    await _require_doc(doc_id, workspace_id, db)
+    await authorized_doc("owner", doc_id, workspace_id, user, db)
     expires_at = payload.expires_at
     if expires_at is not None and expires_at.tzinfo is not None:
         expires_at = expires_at.replace(tzinfo=None)
@@ -133,10 +130,11 @@ async def create_sharing_link(
 async def list_sharing_links(
     doc_id: uuid.UUID,
     workspace_id: uuid.UUID = Depends(current_workspace_id),
+    user: CurrentUser = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ):
     _require_enabled()
-    await _require_doc(doc_id, workspace_id, db)
+    await authorized_doc("viewer", doc_id, workspace_id, user, db)
     return await SharingLinkRepository(db).list_for_document(doc_id)
 
 
@@ -147,6 +145,7 @@ async def list_sharing_links(
 async def revoke_sharing_link(
     link_id: uuid.UUID,
     workspace_id: uuid.UUID = Depends(current_workspace_id),
+    user: CurrentUser = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ):
     _require_enabled()
@@ -154,7 +153,7 @@ async def revoke_sharing_link(
     link = await repo.get_by_id(link_id)
     if link is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Link not found")
-    # Ensure the link's doc is in this workspace
-    await _require_doc(link.document_id, workspace_id, db)
+    # Ensure the link's doc is in this workspace and the user can manage it
+    await authorized_doc("owner", link.document_id, workspace_id, user, db)
     link.revoked_at = utc_now()
     await db.commit()

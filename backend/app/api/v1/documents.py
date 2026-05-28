@@ -3,13 +3,14 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import current_workspace_id
+from app.api.deps import authorized_doc, current_workspace_id
 from app.core.auth import CurrentUser, current_user
 from app.core.config import is_enabled
 from app.core.database import get_db
 from app.models.document import Document
 from app.repositories.document_versions import DocumentVersionRepository
 from app.repositories.documents import DocumentRepository
+from app.services.acl import effective_role
 from app.schemas.document_versions import (
     DocumentVersionRead,
     DocumentVersionSummary,
@@ -30,6 +31,7 @@ router = APIRouter()
 async def create_document(
     payload: DocumentCreate,
     workspace_id: uuid.UUID = Depends(current_workspace_id),
+    user: CurrentUser = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Document:
     repo = DocumentRepository(db)
@@ -41,6 +43,7 @@ async def create_document(
         content_md=payload.content_md,
         content_json=payload.content_json,
         status=payload.status,
+        created_by=user.user_id,
     )
     created = await repo.create(doc)
     if is_enabled("rag") and created.content_md:
@@ -54,15 +57,24 @@ async def list_documents(
     limit: int = Query(default=20, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     workspace_id: uuid.UUID = Depends(current_workspace_id),
+    user: CurrentUser = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ) -> DocumentListResponse:
     repo = DocumentRepository(db)
     items, total = await repo.list_for_workspace(
         workspace_id, q=q, limit=limit, offset=offset
     )
+    # Filter down to docs the user can view. The ACL service falls back
+    # to ``editor`` when no explicit permissions exist, so any doc with
+    # no ACL rows passes through; restricted docs are excluded.
+    visible: list = []
+    for doc in items:
+        role = await effective_role(db, document=doc, user_id=user.user_id)
+        if role is not None:
+            visible.append(doc)
     return DocumentListResponse(
-        items=[DocumentRead.model_validate(i) for i in items],
-        total=total,
+        items=[DocumentRead.model_validate(i) for i in visible],
+        total=len(visible) if total == len(items) else total,
         limit=limit,
         offset=offset,
     )
@@ -72,13 +84,10 @@ async def list_documents(
 async def get_document(
     doc_id: uuid.UUID,
     workspace_id: uuid.UUID = Depends(current_workspace_id),
+    user: CurrentUser = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Document:
-    repo = DocumentRepository(db)
-    doc = await repo.get_for_workspace(workspace_id, doc_id)
-    if doc is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
-    return doc
+    return await authorized_doc("viewer", doc_id, workspace_id, user, db)
 
 
 @router.patch("/{doc_id}", response_model=DocumentRead)
@@ -89,10 +98,8 @@ async def update_document(
     user: CurrentUser = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Document:
+    doc = await authorized_doc("editor", doc_id, workspace_id, user, db)
     repo = DocumentRepository(db)
-    doc = await repo.get_for_workspace(workspace_id, doc_id)
-    if doc is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
     patch = payload.model_dump(exclude_unset=True)
     if is_enabled("versions") and has_content_changed(doc, patch):
@@ -112,13 +119,11 @@ async def update_document(
 async def delete_document(
     doc_id: uuid.UUID,
     workspace_id: uuid.UUID = Depends(current_workspace_id),
+    user: CurrentUser = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    repo = DocumentRepository(db)
-    doc = await repo.get_for_workspace(workspace_id, doc_id)
-    if doc is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
-    await repo.soft_delete(doc)
+    doc = await authorized_doc("owner", doc_id, workspace_id, user, db)
+    await DocumentRepository(db).soft_delete(doc)
 
 
 # --- Versions (1.4) ---

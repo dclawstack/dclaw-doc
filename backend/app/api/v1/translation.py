@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import current_workspace_id
+from app.api.deps import authorized_doc, current_workspace_id
+from app.core.auth import CurrentUser, current_user
 from app.core.database import get_db
 from app.repositories.documents import DocumentRepository
 from app.schemas.documents import DocumentRead
@@ -24,12 +25,12 @@ async def translate_document(
     doc_id: uuid.UUID,
     payload: TranslateRequest,
     workspace_id: uuid.UUID = Depends(current_workspace_id),
+    user: CurrentUser = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    required = "editor" if payload.in_place else "viewer"
+    doc = await authorized_doc(required, doc_id, workspace_id, user, db)
     repo = DocumentRepository(db)
-    doc = await repo.get_for_workspace(workspace_id, doc_id)
-    if doc is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
     translated = await translate_markdown(
         doc.content_md or "",

@@ -6,7 +6,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import PlainTextResponse, Response
 
-from app.api.deps import current_workspace_id
+from app.api.deps import authorized_doc, current_workspace_id
+from app.core.auth import CurrentUser, current_user
 from app.core.config import is_enabled
 from app.core.database import get_db
 from app.models.document import Document
@@ -44,12 +45,11 @@ async def export_document(
     doc_id: uuid.UUID,
     fmt: ExportFormat = Query(default="md"),
     workspace_id: uuid.UUID = Depends(current_workspace_id),
+    user: CurrentUser = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ):
     _require_enabled()
-    doc = await DocumentRepository(db).get_for_workspace(workspace_id, doc_id)
-    if doc is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    doc = await authorized_doc("viewer", doc_id, workspace_id, user, db)
 
     if fmt == "md":
         body = export_markdown(doc)

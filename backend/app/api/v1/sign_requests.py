@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import current_workspace_id
+from app.api.deps import authorized_doc, current_workspace_id
 from app.core.auth import CurrentUser, current_user
 from app.core.database import get_db
 from app.models.sign_request import SignRequest
@@ -68,9 +68,7 @@ async def create_sign_request(
     user: CurrentUser = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    doc = await DocumentRepository(db).get_for_workspace(workspace_id, doc_id)
-    if doc is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    doc = await authorized_doc("owner", doc_id, workspace_id, user, db)
 
     provider = get_provider()
     sent = await provider.send(
@@ -110,8 +108,10 @@ async def create_sign_request(
 async def list_sign_requests(
     doc_id: uuid.UUID,
     workspace_id: uuid.UUID = Depends(current_workspace_id),
+    user: CurrentUser = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await authorized_doc("viewer", doc_id, workspace_id, user, db)
     stmt = (
         select(SignRequest)
         .where(

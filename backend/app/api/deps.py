@@ -5,7 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import CurrentUser, current_user
 from app.core.database import get_db
+from app.models.document import Document
+from app.repositories.documents import DocumentRepository
 from app.repositories.workspaces import WorkspaceRepository
+from app.services.acl import has_role
 
 DEFAULT_WORKSPACE_SLUG = "personal"
 _SENTINEL_UUID = uuid.UUID(int=0)
@@ -43,3 +46,26 @@ async def current_workspace_id(
             detail="Default workspace not yet provisioned",
         )
     return default.id
+
+
+async def authorized_doc(
+    required_role: str,
+    doc_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+    user: CurrentUser,
+    db: AsyncSession,
+) -> Document:
+    """Fetch + ACL-check a document.
+
+    Raises 404 when the document isn't in the workspace, 403 when the
+    user lacks the required role on it.
+    """
+    doc = await DocumentRepository(db).get_for_workspace(workspace_id, doc_id)
+    if doc is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    if not await has_role(db, document=doc, user_id=user.user_id, required=required_role):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"requires role >= {required_role}",
+        )
+    return doc
