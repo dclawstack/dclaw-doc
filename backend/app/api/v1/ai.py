@@ -8,7 +8,14 @@ from starlette.responses import StreamingResponse
 from app.api.deps import current_workspace_id
 from app.core.config import is_enabled
 from app.core.database import get_db
-from app.schemas.ai import DocChatRequest, SearchHitRead, SearchRequest
+from app.schemas.ai import (
+    AgentRunRequest,
+    DocChatRequest,
+    SearchHitRead,
+    SearchRequest,
+    WorkspaceChatRequest,
+)
+from app.services.agent import AgentRunner
 from app.services.doc_ai import stream_doc_chat
 from app.services.rag import hybrid_search
 
@@ -65,3 +72,53 @@ async def search(
         top_k=payload.top_k,
     )
     return [asdict(h) for h in hits]
+
+
+@router.post("/chat")
+async def workspace_chat(
+    payload: WorkspaceChatRequest,
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    """Workspace-wide RAG chat (2.3).
+
+    Same SSE shape as ``/doc-chat`` but always grounded across the whole
+    workspace — no ``document_id`` selection.
+    """
+    if not is_enabled("ai_copilot"):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="ai_copilot feature is disabled",
+        )
+    generator = stream_doc_chat(
+        db=db,
+        workspace_id=workspace_id,
+        document_id=None,
+        selection=None,
+        prompt=payload.prompt,
+        mode="chat",
+        use_rag=True,
+    )
+    return StreamingResponse(generator, media_type="text/event-stream")
+
+
+@router.post("/agent")
+async def run_agent(
+    payload: AgentRunRequest,
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Agentic copilot — bounded tool-calling loop (2.2)."""
+    if not is_enabled("ai_copilot"):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="ai_copilot feature is disabled",
+        )
+    runner = AgentRunner(max_steps=payload.max_steps)
+    run = await runner.run(
+        db=db,
+        workspace_id=workspace_id,
+        prompt=payload.prompt,
+        context=payload.context,
+    )
+    return AgentRunner.as_dict(run)

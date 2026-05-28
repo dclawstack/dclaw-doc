@@ -25,6 +25,9 @@ class Document(Base):
     content_md: Mapped[str] = mapped_column(Text, default="")
     content_json: Mapped[str] = mapped_column(Text, default="{}")
     status: Mapped[str] = mapped_column(String(32), default="draft", index=True)
+    sensitivity: Mapped[str] = mapped_column(
+        String(16), default="public", index=True
+    )  # public | confidential | pii | phi
     created_at: Mapped[datetime] = mapped_column(default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(default=utc_now, onupdate=utc_now)
     deleted_at: Mapped[datetime | None] = mapped_column(nullable=True, index=True)

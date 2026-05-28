@@ -1,3 +1,4 @@
+from app.models.audit_event import AuditEvent
 from app.models.base import Base
 from app.models.comment import Comment
 from app.models.document import Document
@@ -11,6 +12,7 @@ from app.models.usage import WorkspaceUsage
 from app.models.workspace import Workspace
 
 __all__ = [
+    "AuditEvent",
     "Base",
     "Comment",
     "Document",

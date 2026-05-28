@@ -9,6 +9,7 @@ from app.api.routes import health
 from app.api.v1 import (
     ai,
     comments,
+    compliance,
     documents,
     exports,
     folders,
@@ -71,4 +72,5 @@ app.include_router(comments.router, prefix="/api/v1", tags=["comments"])
 app.include_router(permissions.router, prefix="/api/v1", tags=["permissions"])
 app.include_router(exports.router, prefix="/api/v1", tags=["exports"])
 app.include_router(usage.router, prefix="/api/v1/usage", tags=["usage"])
+app.include_router(compliance.router, prefix="/api/v1", tags=["compliance"])
 app.include_router(ai.router, prefix="/api/v1/ai", tags=["ai"])

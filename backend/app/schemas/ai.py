@@ -29,3 +29,14 @@ class SearchHitRead(BaseModel):
     text: str
     score: float
     document_title: str
+
+
+class AgentRunRequest(BaseModel):
+    prompt: str = Field(min_length=1, max_length=8_000)
+    context: str | None = None
+    max_steps: int = Field(default=5, ge=1, le=15)
+
+
+class WorkspaceChatRequest(BaseModel):
+    prompt: str = Field(min_length=1, max_length=8_000)
+    top_k: int = Field(default=8, ge=1, le=50)
