@@ -15,6 +15,9 @@ DEFAULT_FEATURES: dict[str, bool] = {
     "permissions": True,
     "usage": True,
     "tracing": False,
+    # DEMO-ONLY flag — set FEATURES='{"demo_endpoints":false}' (or remove
+    # this entry + app/api/v1/demo.py) before going to production.
+    "demo_endpoints": True,
 }
 
 

@@ -27,6 +27,9 @@ from app.api.v1 import (
     workspaces,
     ws_collab,
 )
+# DEMO-ONLY (remove this import + the matching include_router below
+# before production; see app/api/v1/demo.py for the full removal list)
+from app.api.v1 import demo
 # Importing the jobs runner registers the default handlers via decorators.
 from app.services import jobs as _jobs_module  # noqa: F401
 from app.core.config import settings
@@ -101,3 +104,5 @@ app.include_router(ocr.router, prefix="/api/v1/ocr", tags=["ocr"])
 app.include_router(merge.router, prefix="/api/v1", tags=["merge"])
 app.include_router(ws_collab.router, prefix="/api/v1", tags=["collab"])
 app.include_router(ai.router, prefix="/api/v1/ai", tags=["ai"])
+# DEMO-ONLY (remove this line + the demo import above before production)
+app.include_router(demo.router, prefix="/api/v1/demo", tags=["demo"])

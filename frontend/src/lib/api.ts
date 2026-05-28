@@ -598,4 +598,22 @@ export async function getJob(id: string) {
   return fetchJson<JobRecord>(`/api/v1/jobs/${id}`);
 }
 
+// --- DEMO-ONLY: seed / reset helpers (remove with the backend demo router) ---
+
+export interface SeedResult {
+  seeded: Record<string, number>;
+}
+
+export interface ResetResult {
+  removed: Record<string, number>;
+}
+
+export async function seedDemoData() {
+  return fetchJson<SeedResult>("/api/v1/demo/seed", { method: "POST" });
+}
+
+export async function resetDemoData() {
+  return fetchJson<ResetResult>("/api/v1/demo/reset", { method: "POST" });
+}
+
 export { ApiError };

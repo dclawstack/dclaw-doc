@@ -1,4 +1,9 @@
 import Link from "next/link";
+
+// DEMO-ONLY: <DemoControls /> below the nav lets visitors seed / reset
+// the workspace. Remove this import + the render site marked DEMO-ONLY.
+import { DemoControls } from "@/components/demo/controls";
+
 import {
   ArrowRight,
   Bot,
@@ -36,6 +41,8 @@ export default function LandingPage() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <Nav />
+      {/* DEMO-ONLY (remove with the rest of the demo plumbing) */}
+      <DemoControls />
       <Hero />
       <Pillars />
       <FeatureGrid />
