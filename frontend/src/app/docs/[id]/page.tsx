@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { CopilotPanel } from "@/components/copilot/panel";
+import { RichEditor } from "@/components/editor/rich-editor";
 import {
   DocumentRecord,
   DocumentVersionSummary,
@@ -18,15 +19,20 @@ import {
   updateDocument,
 } from "@/lib/api";
 
+const AUTOSAVE_DEBOUNCE_MS = 1200;
+
 export default function DocPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [doc, setDoc] = useState<DocumentRecord | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [initialContent, setInitialContent] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [autosaveAt, setAutosaveAt] = useState<Date | null>(null);
   const [versions, setVersions] = useState<DocumentVersionSummary[]>([]);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadVersions = useCallback(async () => {
     try {
@@ -42,6 +48,7 @@ export default function DocPage() {
       setDoc(fetched);
       setTitle(fetched.title);
       setContent(fetched.content_md);
+      setInitialContent(fetched.content_md);
       await loadVersions();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -52,24 +59,42 @@ export default function DocPage() {
     load();
   }, [load]);
 
-  async function handleSave() {
-    setSaving(true);
-    try {
-      const updated = await updateDocument(id, { title, content_md: content });
-      setDoc(updated);
-      await loadVersions();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSaving(false);
-    }
-  }
+  const save = useCallback(
+    async (next: { title: string; content_md: string }) => {
+      setSaving(true);
+      try {
+        const updated = await updateDocument(id, next);
+        setDoc(updated);
+        setAutosaveAt(new Date());
+        await loadVersions();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setSaving(false);
+      }
+    },
+    [id, loadVersions],
+  );
+
+  // Autosave whenever title/content change after the initial load.
+  useEffect(() => {
+    if (!doc) return;
+    if (title === doc.title && content === doc.content_md) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      save({ title, content_md: content });
+    }, AUTOSAVE_DEBOUNCE_MS);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [title, content, doc, save]);
 
   async function handleRestore(versionNum: number) {
     const restored = await restoreDocumentVersion(id, versionNum);
     setDoc(restored);
     setTitle(restored.title);
     setContent(restored.content_md);
+    setInitialContent(restored.content_md);
     await loadVersions();
   }
 
@@ -119,24 +144,23 @@ export default function DocPage() {
               placeholder="Document title"
               aria-label="Title"
             />
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Markdown content…"
-              className="min-h-[300px] w-full rounded-md border border-input bg-background p-3 text-sm font-mono"
-              aria-label="Content"
+            <RichEditor
+              initialMarkdown={initialContent}
+              onChange={setContent}
+              ariaLabel="Document content editor"
             />
-            <div className="flex justify-between gap-2">
+            <div className="flex items-center justify-between gap-2">
               <Button variant="ghost" onClick={handleDelete}>
                 Delete
               </Button>
-              <Button onClick={handleSave} disabled={saving}>
-                {saving ? "Saving…" : "Save"}
-              </Button>
+              <p className="text-xs text-gray-500">
+                {saving
+                  ? "Saving…"
+                  : autosaveAt
+                  ? `Autosaved ${autosaveAt.toLocaleTimeString()}`
+                  : `Last updated ${new Date(doc.updated_at).toLocaleString()}`}
+              </p>
             </div>
-            <p className="text-xs text-gray-500">
-              Last updated {new Date(doc.updated_at).toLocaleString()}
-            </p>
           </CardContent>
         </Card>
 
