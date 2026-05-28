@@ -6,13 +6,16 @@ from app.models.document_chunk import DocumentChunk
 from app.models.document_version import DocumentVersion
 from app.models.embed import LiveEmbed
 from app.models.folder import Folder
+from app.models.job import Job
 from app.models.notarization import Notarization
 from app.models.permission import DocumentPermission, SharingLink
 from app.models.preference import AIFeedback
+from app.models.sign_request import SignRequest
 from app.models.tag import DocumentTag, Tag
 from app.models.template import Template
 from app.models.usage import WorkspaceUsage
 from app.models.workspace import Workspace
+from app.models.yjs_update import YjsUpdate
 
 __all__ = [
     "AIFeedback",
@@ -25,11 +28,14 @@ __all__ = [
     "DocumentTag",
     "DocumentVersion",
     "Folder",
+    "Job",
     "LiveEmbed",
     "Notarization",
     "SharingLink",
+    "SignRequest",
     "Tag",
     "Template",
     "Workspace",
     "WorkspaceUsage",
+    "YjsUpdate",
 ]

@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     embedding_provider: str = "mock"
     rag_top_k: int = 5
 
+    # Vision provider for OCR (2.8): "mock" or "ollama" (llava)
+    ai_vision_provider: str = "mock"
+
     # --- Feature flags (1.13) ---
     # Override via env: FEATURES='{"ai_copilot":true,"rag":true}'
     features: dict[str, bool] = DEFAULT_FEATURES

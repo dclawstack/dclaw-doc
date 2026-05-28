@@ -14,14 +14,21 @@ from app.api.v1 import (
     embeds,
     exports,
     folders,
+    jobs,
+    merge,
     notarization,
+    ocr,
     permissions,
     preferences,
+    sign_requests,
     templates,
     translation,
     usage,
     workspaces,
+    ws_collab,
 )
+# Importing the jobs runner registers the default handlers via decorators.
+from app.services import jobs as _jobs_module  # noqa: F401
 from app.core.config import settings
 from app.core.database import engine, init_db
 from app.core.logging import configure_logging, get_logger
@@ -43,11 +50,18 @@ async def _seed_default_workspace() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from app.services.jobs import shutdown as jobs_shutdown
+    from app.services.jobs import start_worker as start_jobs_worker
+
     configure_logging()
     await init_db()
     await _seed_default_workspace()
+    await start_jobs_worker()
     get_logger(__name__).info("app.startup", app=settings.app_name, env=settings.app_env)
-    yield
+    try:
+        yield
+    finally:
+        await jobs_shutdown()
 
 
 app = FastAPI(
@@ -81,4 +95,9 @@ app.include_router(notarization.router, prefix="/api/v1", tags=["notarization"])
 app.include_router(translation.router, prefix="/api/v1", tags=["translation"])
 app.include_router(embeds.router, prefix="/api/v1/embeds", tags=["embeds"])
 app.include_router(preferences.router, prefix="/api/v1/feedback", tags=["feedback"])
+app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["jobs"])
+app.include_router(sign_requests.router, prefix="/api/v1", tags=["sign_requests"])
+app.include_router(ocr.router, prefix="/api/v1/ocr", tags=["ocr"])
+app.include_router(merge.router, prefix="/api/v1", tags=["merge"])
+app.include_router(ws_collab.router, prefix="/api/v1", tags=["collab"])
 app.include_router(ai.router, prefix="/api/v1/ai", tags=["ai"])
