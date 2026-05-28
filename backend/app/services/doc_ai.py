@@ -17,6 +17,7 @@ from app.core.config import is_enabled, settings
 from app.repositories.documents import DocumentRepository
 from app.services.llm import LLMStreamChunk, get_provider
 from app.services.rag import SearchHit, hybrid_search
+from app.services.usage import record_usage
 
 
 SYSTEM_PROMPTS = {
@@ -127,6 +128,18 @@ async def stream_doc_chat(
             yield sse_event("token", {"content": chunk.content})
 
     if final_chunk is not None:
+        if is_enabled("usage"):
+            try:
+                await record_usage(
+                    db,
+                    workspace_id=workspace_id,
+                    provider=provider.name,
+                    model=settings.ai_model,
+                    prompt_tokens=final_chunk.prompt_tokens or 0,
+                    completion_tokens=final_chunk.completion_tokens or 0,
+                )
+            except Exception:  # noqa: BLE001 — telemetry must never break the stream
+                pass
         yield sse_event(
             "usage",
             {
