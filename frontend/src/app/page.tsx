@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TemplatesPicker } from "@/components/templates/picker";
+import { WorkspaceSwitcher } from "@/components/workspace/switcher";
 import {
   DocumentRecord,
   createDocument,
@@ -71,13 +72,19 @@ export default function Home() {
               AI-native document workspace · backend on :8107
             </p>
           </div>
-          <div className="flex flex-col items-end gap-1 text-sm text-indigo-600">
-            <Link href="/usage" className="hover:underline">
-              AI usage →
-            </Link>
-            <Link href="/ocr" className="hover:underline">
-              OCR / vision →
-            </Link>
+          <div className="flex flex-col items-end gap-2 text-sm text-indigo-600">
+            <WorkspaceSwitcher />
+            <div className="flex gap-4">
+              <Link href="/usage" className="hover:underline">
+                AI usage →
+              </Link>
+              <Link href="/jobs" className="hover:underline">
+                Jobs →
+              </Link>
+              <Link href="/ocr" className="hover:underline">
+                OCR →
+              </Link>
+            </div>
           </div>
         </header>
 

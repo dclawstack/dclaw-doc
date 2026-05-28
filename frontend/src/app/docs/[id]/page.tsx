@@ -14,6 +14,7 @@ import { CopilotPanel } from "@/components/copilot/panel";
 import { CollabRichEditor } from "@/components/editor/collab-editor";
 import { RichEditor } from "@/components/editor/rich-editor";
 import { ESignCard } from "@/components/esign/esign-card";
+import { MergeModal } from "@/components/merge/merge-modal";
 import { SharingCard } from "@/components/sharing/sharing-card";
 import { TranslationModal } from "@/components/translation/modal";
 import { DiffViewer } from "@/components/versions/diff-viewer";
@@ -43,6 +44,7 @@ export default function DocPage() {
   const [versions, setVersions] = useState<DocumentVersionSummary[]>([]);
   const [diffVersion, setDiffVersion] = useState<number | null>(null);
   const [translateOpen, setTranslateOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadVersions = useCallback(async () => {
@@ -178,6 +180,9 @@ export default function DocPage() {
                 <Button variant="outline" onClick={() => setTranslateOpen(true)}>
                   Translate
                 </Button>
+                <Button variant="outline" onClick={() => setMergeOpen(true)}>
+                  Resolve offline edits
+                </Button>
                 <PIIChip text={content} />
               </div>
               <p className="text-xs text-gray-500">
@@ -259,6 +264,18 @@ export default function DocPage() {
           onApplied={(newMd) => {
             setContent(newMd);
             setInitialContent(newMd);
+          }}
+        />
+      )}
+
+      {mergeOpen && (
+        <MergeModal
+          documentId={id}
+          currentContent={content}
+          onClose={() => setMergeOpen(false)}
+          onApplied={(mergedMd) => {
+            setContent(mergedMd);
+            setInitialContent(mergedMd);
           }}
         />
       )}

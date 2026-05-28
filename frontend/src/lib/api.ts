@@ -1,5 +1,20 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
+const ACTIVE_WORKSPACE_STORAGE_KEY = "dclaw.activeWorkspaceId";
+
+export function getActiveWorkspaceId(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(ACTIVE_WORKSPACE_STORAGE_KEY);
+}
+
+export function setActiveWorkspaceId(id: string | null) {
+  if (typeof window === "undefined") return;
+  if (id) window.localStorage.setItem(ACTIVE_WORKSPACE_STORAGE_KEY, id);
+  else window.localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
+  // Broadcast so other tabs / mounted components can react.
+  window.dispatchEvent(new CustomEvent("dclaw:workspaceChanged", { detail: id }));
+}
+
 class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -10,11 +25,16 @@ class ApiError extends Error {
 
 async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string> | undefined),
+  };
+  const workspaceId = getActiveWorkspaceId();
+  if (workspaceId && !headers["X-Workspace-Id"]) {
+    headers["X-Workspace-Id"] = workspaceId;
+  }
   const response = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
+    headers,
     cache: "no-store",
     ...options,
   });
@@ -126,9 +146,12 @@ async function consumeSseStream(
   signal?: AbortSignal,
 ): Promise<void> {
   try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const workspaceId = getActiveWorkspaceId();
+    if (workspaceId) headers["X-Workspace-Id"] = workspaceId;
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(payload),
       signal,
     });
@@ -520,6 +543,59 @@ export async function mergeOfflineEdits(
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+// --- Workspaces ---
+
+export interface WorkspaceRecord {
+  id: string;
+  slug: string;
+  name: string;
+  created_at: string;
+}
+
+export async function listWorkspaces() {
+  return fetchJson<WorkspaceRecord[]>("/api/v1/workspaces");
+}
+
+export async function createWorkspace(payload: { slug: string; name: string }) {
+  return fetchJson<WorkspaceRecord>("/api/v1/workspaces", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+// --- Background jobs ---
+
+export interface JobRecord {
+  id: string;
+  kind: string;
+  status: "queued" | "running" | "succeeded" | "failed";
+  payload: string;
+  result: string | null;
+  error: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+}
+
+export async function listJobs(params?: { status?: string; limit?: number }) {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set("status", params.status);
+  if (params?.limit !== undefined) qs.set("limit", String(params.limit));
+  const query = qs.toString();
+  return fetchJson<JobRecord[]>(`/api/v1/jobs${query ? `?${query}` : ""}`);
+}
+
+export async function enqueueJob(payload: { kind: string; payload?: Record<string, unknown> }) {
+  return fetchJson<JobRecord>("/api/v1/jobs", {
+    method: "POST",
+    body: JSON.stringify({ kind: payload.kind, payload: payload.payload ?? {} }),
+  });
+}
+
+export async function getJob(id: string) {
+  return fetchJson<JobRecord>(`/api/v1/jobs/${id}`);
 }
 
 export { ApiError };
