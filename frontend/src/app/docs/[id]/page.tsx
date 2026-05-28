@@ -8,9 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { CommentsPanel } from "@/components/comments/panel";
+import { PIIChip } from "@/components/compliance/pii-chip";
+import { AgentPanel } from "@/components/copilot/agent-panel";
 import { CopilotPanel } from "@/components/copilot/panel";
+import { CollabRichEditor } from "@/components/editor/collab-editor";
 import { RichEditor } from "@/components/editor/rich-editor";
+import { ESignCard } from "@/components/esign/esign-card";
 import { SharingCard } from "@/components/sharing/sharing-card";
+import { TranslationModal } from "@/components/translation/modal";
+import { DiffViewer } from "@/components/versions/diff-viewer";
 import {
   DocumentRecord,
   DocumentVersionSummary,
@@ -22,6 +28,7 @@ import {
 } from "@/lib/api";
 
 const AUTOSAVE_DEBOUNCE_MS = 1200;
+const COLLAB_ENABLED = process.env.NEXT_PUBLIC_COLLAB === "true";
 
 export default function DocPage() {
   const { id } = useParams<{ id: string }>();
@@ -34,6 +41,8 @@ export default function DocPage() {
   const [saving, setSaving] = useState(false);
   const [autosaveAt, setAutosaveAt] = useState<Date | null>(null);
   const [versions, setVersions] = useState<DocumentVersionSummary[]>([]);
+  const [diffVersion, setDiffVersion] = useState<number | null>(null);
+  const [translateOpen, setTranslateOpen] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadVersions = useCallback(async () => {
@@ -146,15 +155,31 @@ export default function DocPage() {
               placeholder="Document title"
               aria-label="Title"
             />
-            <RichEditor
-              initialMarkdown={initialContent}
-              onChange={setContent}
-              ariaLabel="Document content editor"
-            />
-            <div className="flex items-center justify-between gap-2">
-              <Button variant="ghost" onClick={handleDelete}>
-                Delete
-              </Button>
+            {COLLAB_ENABLED && doc.workspace_id ? (
+              <CollabRichEditor
+                documentId={id}
+                workspaceId={doc.workspace_id}
+                initialMarkdown={initialContent}
+                onChange={setContent}
+                ariaLabel="Document content editor"
+              />
+            ) : (
+              <RichEditor
+                initialMarkdown={initialContent}
+                onChange={setContent}
+                ariaLabel="Document content editor"
+              />
+            )}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="ghost" onClick={handleDelete}>
+                  Delete
+                </Button>
+                <Button variant="outline" onClick={() => setTranslateOpen(true)}>
+                  Translate
+                </Button>
+                <PIIChip text={content} />
+              </div>
               <p className="text-xs text-gray-500">
                 {saving
                   ? "Saving…"
@@ -167,6 +192,8 @@ export default function DocPage() {
         </Card>
 
         <SharingCard documentId={id} initialSensitivity={doc.sensitivity} />
+
+        <ESignCard documentId={id} />
 
         <CommentsPanel documentId={id} />
 
@@ -189,20 +216,52 @@ export default function DocPage() {
                         {new Date(v.created_at).toLocaleString()}
                       </span>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRestore(v.version_num)}
-                    >
-                      Restore
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDiffVersion(v.version_num)}
+                      >
+                        Diff
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRestore(v.version_num)}
+                      >
+                        Restore
+                      </Button>
+                    </div>
                   </li>
                 ))}
               </ul>
             </CardContent>
           </Card>
         )}
+
+        <AgentPanel />
       </div>
+
+      {diffVersion !== null && (
+        <DiffViewer
+          documentId={id}
+          versionNum={diffVersion}
+          currentTitle={title}
+          currentContent={content}
+          onClose={() => setDiffVersion(null)}
+        />
+      )}
+
+      {translateOpen && (
+        <TranslationModal
+          documentId={id}
+          onClose={() => setTranslateOpen(false)}
+          onApplied={(newMd) => {
+            setContent(newMd);
+            setInitialContent(newMd);
+          }}
+        />
+      )}
     </main>
   );
 }

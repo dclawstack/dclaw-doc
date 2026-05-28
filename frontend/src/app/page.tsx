@@ -71,9 +71,14 @@ export default function Home() {
               AI-native document workspace · backend on :8107
             </p>
           </div>
-          <Link href="/usage" className="text-sm text-indigo-600 hover:underline">
-            AI usage →
-          </Link>
+          <div className="flex flex-col items-end gap-1 text-sm text-indigo-600">
+            <Link href="/usage" className="hover:underline">
+              AI usage →
+            </Link>
+            <Link href="/ocr" className="hover:underline">
+              OCR / vision →
+            </Link>
+          </div>
         </header>
 
         <TemplatesPicker />

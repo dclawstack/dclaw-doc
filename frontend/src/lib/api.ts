@@ -390,4 +390,136 @@ export async function listUsage(since?: string) {
   return fetchJson<UsageRow[]>(`/api/v1/usage${qs}`);
 }
 
+// --- Agentic copilot ---
+
+export interface AgentStep {
+  kind: "tool_call" | "final";
+  tool: string | null;
+  arguments: Record<string, unknown> | null;
+  result: unknown;
+  text: string;
+}
+
+export interface AgentResult {
+  final_answer: string;
+  steps: AgentStep[];
+}
+
+export async function runAgent(payload: { prompt: string; context?: string; max_steps?: number }) {
+  return fetchJson<AgentResult>("/api/v1/ai/agent", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+// --- Versions: full snapshot ---
+
+export interface DocumentVersionFull extends DocumentVersionSummary {
+  id: string;
+  document_id: string;
+  content_md: string;
+  content_json: string;
+}
+
+export async function getDocumentVersion(docId: string, versionNum: number) {
+  return fetchJson<DocumentVersionFull>(`/api/v1/documents/${docId}/versions/${versionNum}`);
+}
+
+// --- Translation ---
+
+export async function translateDocument(
+  docId: string,
+  payload: { target_language: string; glossary?: Record<string, string>; in_place?: boolean },
+) {
+  return fetchJson<DocumentRecord>(`/api/v1/documents/${docId}/translate`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+// --- Compliance scan ---
+
+export interface PIIFinding {
+  kind: string;
+  value: string;
+  start?: number;
+  end?: number;
+}
+
+export async function scanPII(text: string) {
+  return fetchJson<{ findings: PIIFinding[] }>("/api/v1/compliance/scan", {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+}
+
+// --- E-sign ---
+
+export interface SignRequestRecord {
+  id: string;
+  document_id: string;
+  provider: string;
+  external_id: string | null;
+  signer_email: string;
+  signer_name: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function createSignRequest(
+  docId: string,
+  payload: { signer_email: string; signer_name?: string },
+) {
+  return fetchJson<SignRequestRecord>(`/api/v1/documents/${docId}/sign-requests`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function listSignRequests(docId: string) {
+  return fetchJson<SignRequestRecord[]>(`/api/v1/documents/${docId}/sign-requests`);
+}
+
+// --- OCR ---
+
+export interface OCRResponse {
+  text: string;
+  provider: string;
+  model: string;
+}
+
+export async function ocrTranscribe(image_base64: string, hint?: string) {
+  return fetchJson<OCRResponse>("/api/v1/ocr", {
+    method: "POST",
+    body: JSON.stringify({ image_base64, hint }),
+  });
+}
+
+export async function ocrToDocument(image_base64: string, title: string, hint?: string) {
+  return fetchJson<DocumentRecord>("/api/v1/ocr/to-document", {
+    method: "POST",
+    body: JSON.stringify({ image_base64, title, hint }),
+  });
+}
+
+// --- Merge ---
+
+export interface MergeResponse {
+  merged_content_md: string;
+  conflicts: number;
+  server_version_num: number;
+  persisted: boolean;
+}
+
+export async function mergeOfflineEdits(
+  docId: string,
+  payload: { base_version_num: number; local_content_md: string; persist: boolean },
+) {
+  return fetchJson<MergeResponse>(`/api/v1/documents/${docId}/merge`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export { ApiError };
