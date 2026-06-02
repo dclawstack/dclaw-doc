@@ -1,8 +1,15 @@
+import os
+import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
+from starlette.middleware.gzip import GZipMiddleware
 
 from app.api.deps import DEFAULT_WORKSPACE_SLUG
 from app.api.routes import health
@@ -67,11 +74,42 @@ async def lifespan(app: FastAPI):
         await jobs_shutdown()
 
 
+# Observability: initialize Sentry only when a DSN is configured.
+if os.environ.get("SENTRY_DSN"):
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=os.environ["SENTRY_DSN"],
+        environment=settings.app_env,
+        traces_sample_rate=float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.0")),
+    )
+
 app = FastAPI(
     title=settings.app_name,
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Rate limiting (slowapi).
+limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+# Response compression.
+app.add_middleware(GZipMiddleware, minimum_size=500)
+
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    """Bind a request_id into the structlog context and echo it on the response."""
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    log = get_logger("http").bind(request_id=request_id)
+    log.debug("request.received", path=request.url.path, method=request.method)
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
 
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(

@@ -87,6 +87,7 @@ export default function JobsPage() {
           </CardHeader>
           <CardContent className="flex items-center gap-2 text-sm">
             <select
+              aria-label="Job kind"
               value={enqueueKind}
               onChange={(e) =>
                 setEnqueueKind(e.target.value as (typeof KINDS)[number]["value"])
@@ -128,6 +129,7 @@ export default function JobsPage() {
               </div>
               <label className="flex items-center gap-1">
                 <input
+                  aria-label="Auto-refresh"
                   type="checkbox"
                   checked={autorefresh}
                   onChange={(e) => setAutorefresh(e.target.checked)}
