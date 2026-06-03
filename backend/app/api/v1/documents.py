@@ -72,9 +72,16 @@ async def list_documents(
         role = await effective_role(db, document=doc, user_id=user.user_id)
         if role is not None:
             visible.append(doc)
+    # Subtract docs hidden from this user on the current page from the workspace
+    # total, consistently across single- and multi-page results (the old
+    # `len(visible) if total == len(items) else total` was correct only when the
+    # whole set fit on one page). Exact ACL-aware totals would require pushing the
+    # permission filter into the SQL query — a follow-up; this never over-reports
+    # beyond the unfiltered total nor under-reports below what's visible.
+    hidden_on_page = len(items) - len(visible)
     return DocumentListResponse(
         items=[DocumentRead.model_validate(i) for i in visible],
-        total=len(visible) if total == len(items) else total,
+        total=max(total - hidden_on_page, len(visible)),
         limit=limit,
         offset=offset,
     )
