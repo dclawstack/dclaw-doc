@@ -71,6 +71,11 @@ class Settings(BaseSettings):
     # on via DEMO_ENABLED=true. NEVER enable this in production.
     demo_enabled: bool = False
 
+    # --- CORS ---
+    # Origins allowed to make credentialed requests. Override via env:
+    # CORS_ORIGINS='["https://app.example.com"]'
+    cors_origins: list[str] = ["http://localhost:5173"]
+
     # --- Feature flags (1.13) ---
     # Override via env: FEATURES='{"ai_copilot":true,"rag":true}'
     features: dict[str, bool] = DEFAULT_FEATURES
