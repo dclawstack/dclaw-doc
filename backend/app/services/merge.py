@@ -26,24 +26,6 @@ def _split_lines(text: str) -> list[str]:
     return text.splitlines(keepends=True) if text else []
 
 
-def _detect_changes(base: list[str], side: list[str]) -> dict[int, tuple[str, list[str]]]:
-    """Return {base_index: (tag, replacement_lines)} for every change in side vs base."""
-    matcher = SequenceMatcher(a=base, b=side, autojunk=False)
-    changes: dict[int, tuple[str, list[str]]] = {}
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag == "equal":
-            continue
-        # Record one entry keyed by the starting base index of the block.
-        changes[i1] = (tag, list(side[j1:j2]))
-        # For pure inserts the replacement region in base is empty; we
-        # still store ``i2 - i1 = 0`` so the merge loop can advance correctly.
-        changes[i1] = (tag, list(side[j1:j2]) if tag != "delete" else [])
-        # Cache the base-range length so the merger can advance correctly
-        # when applying the change.
-        changes[i1 + 0.5] = (tag, [str(i2 - i1)])  # sneaky length marker
-    return changes
-
-
 def three_way_merge(base: str, server: str, local: str) -> MergeResult:
     """diff3 merge: combine ``server`` and ``local`` against ``base``."""
     base_lines = _split_lines(base)
