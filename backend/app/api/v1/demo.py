@@ -29,7 +29,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import DEFAULT_WORKSPACE_SLUG
-from app.core.config import is_enabled
+from app.core.config import is_enabled, settings
 from app.core.database import get_db
 from app.core.utils import utc_now
 from app.models.audit_event import AuditEvent
@@ -59,7 +59,11 @@ router = APIRouter()
 
 
 def _require_enabled() -> None:
-    if not is_enabled("demo_endpoints"):
+    # Fail-closed: these endpoints are DESTRUCTIVE (they wipe all workspace
+    # data) and must be explicitly enabled via DEMO_ENABLED=true. They must
+    # NEVER be reachable in production. We 404 (not 403) so disabled demo
+    # routes are indistinguishable from non-existent ones.
+    if not settings.demo_enabled or not is_enabled("demo_endpoints"):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="demo endpoints disabled",
