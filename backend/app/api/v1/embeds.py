@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_workspace_id
 from app.core.database import get_db
+from app.core.ssrf import SSRFError, assert_url_safe
 from app.core.utils import utc_now
 from app.models.embed import LiveEmbed
 
@@ -39,6 +40,16 @@ async def create_embed(
     workspace_id: uuid.UUID = Depends(current_workspace_id),
     db: AsyncSession = Depends(get_db),
 ):
+    # Reject URLs that resolve to internal/metadata addresses before we ever
+    # store (and later fetch) them server-side (SSRF guard).
+    try:
+        assert_url_safe(str(payload.source))
+    except SSRFError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
     embed = LiveEmbed(
         workspace_id=workspace_id,
         name=payload.name,
@@ -79,12 +90,24 @@ async def refresh_embed(
             detail=f"unsupported embed kind: {embed.kind}",
         )
 
+    # Re-validate at fetch time (resolves DNS now) so a record stored before
+    # the guard — or a rebinding host — can't reach internal addresses (SSRF).
+    try:
+        assert_url_safe(embed.source)
+    except SSRFError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
     headers: dict[str, str] = {}
     if embed.etag:
         headers["If-None-Match"] = embed.etag
 
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(15.0), follow_redirects=False
+        ) as client:
             resp = await client.get(embed.source, headers=headers)
     except httpx.HTTPError as exc:
         raise HTTPException(
