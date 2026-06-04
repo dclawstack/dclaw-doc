@@ -21,6 +21,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from sqlalchemy import asc, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.websockets import WebSocket
 
@@ -86,17 +87,29 @@ async def append_update(
     payload: bytes,
     author_id: str | None,
 ) -> YjsUpdate:
+    # ``seq`` is assigned as MAX(seq)+1, but two concurrent connections to the
+    # same document can read the same MAX and race to insert duplicate seqs.
+    # A UniqueConstraint on (document_id, seq) makes the DB reject the loser;
+    # we retry with a freshly recomputed seq until the insert wins. This is
+    # correct on both SQLite and Postgres and across worker processes, unlike
+    # an in-process lock or SELECT ... FOR UPDATE (a no-op on SQLite).
     next_seq_stmt = select(func.coalesce(func.max(YjsUpdate.seq), 0) + 1).where(
         YjsUpdate.document_id == document_id
     )
-    next_seq = (await db.execute(next_seq_stmt)).scalar() or 1
-    row = YjsUpdate(
-        document_id=document_id, seq=next_seq, payload=payload, author_id=author_id
-    )
-    db.add(row)
-    await db.commit()
-    await db.refresh(row)
-    return row
+    while True:
+        next_seq = (await db.execute(next_seq_stmt)).scalar() or 1
+        row = YjsUpdate(
+            document_id=document_id, seq=next_seq, payload=payload, author_id=author_id
+        )
+        db.add(row)
+        try:
+            await db.commit()
+        except IntegrityError:
+            # Another connection took this seq first — roll back and retry.
+            await db.rollback()
+            continue
+        await db.refresh(row)
+        return row
 
 
 async def update_count(db: AsyncSession, document_id: uuid.UUID) -> int:
