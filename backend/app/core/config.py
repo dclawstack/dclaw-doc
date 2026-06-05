@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production"
     access_token_expire_minutes: int = 60
 
+    # Shared secret for verifying the e-sign provider webhook HMAC signature.
+    # Empty by default → the webhook rejects all requests (fail-closed).
+    sign_webhook_secret: str = ""
+
     # --- Auth (1.1) ---
     # auth_mode: "dev" → accept any bearer (or none) and fall back to default workspace
     #            "logto" → verify against Logto JWKS using logto_endpoint + logto_app_id
@@ -60,6 +64,17 @@ class Settings(BaseSettings):
 
     # Vision provider for OCR (2.8): "mock" or "ollama" (llava)
     ai_vision_provider: str = "mock"
+
+    # --- Demo endpoints ---
+    # The /api/v1/demo/* routes (seed/reset) are DESTRUCTIVE — they wipe all
+    # workspace data. They are fail-closed: disabled unless explicitly turned
+    # on via DEMO_ENABLED=true. NEVER enable this in production.
+    demo_enabled: bool = False
+
+    # --- CORS ---
+    # Origins allowed to make credentialed requests. Override via env:
+    # CORS_ORIGINS='["https://app.example.com"]'
+    cors_origins: list[str] = ["http://localhost:5173"]
 
     # --- Feature flags (1.13) ---
     # Override via env: FEATURES='{"ai_copilot":true,"rag":true}'

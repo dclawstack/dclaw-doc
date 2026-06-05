@@ -111,6 +111,7 @@ export function MergeModal({ documentId, currentContent, onClose, onApplied }: P
                 </p>
               ) : (
                 <select
+                  aria-label="Base version"
                   id="merge-base"
                   value={baseVersion ?? ""}
                   onChange={(e) => setBaseVersion(Number(e.target.value))}
@@ -129,6 +130,7 @@ export function MergeModal({ documentId, currentContent, onClose, onApplied }: P
             <div className="space-y-1">
               <Label htmlFor="merge-local">Your offline body</Label>
               <textarea
+                aria-label="Your offline body"
                 id="merge-local"
                 value={localContent}
                 onChange={(e) => setLocalContent(e.target.value)}

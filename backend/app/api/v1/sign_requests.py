@@ -1,12 +1,15 @@
+import hashlib
+import hmac
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import authorized_doc, current_workspace_id
 from app.core.auth import CurrentUser, current_user
+from app.core.config import settings
 from app.core.database import get_db
 from app.models.sign_request import SignRequest
 from app.repositories.documents import DocumentRepository
@@ -125,14 +128,49 @@ async def list_sign_requests(
 
 @router.post("/sign-requests/webhook")
 async def sign_request_webhook(
-    event: WebhookEvent,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """Provider-agnostic webhook entrypoint.
 
-    Real providers carry signed headers — verify them in the provider's
-    adapter before reaching this handler.
+    Webhooks can spoof sign-request status, so we verify an HMAC-SHA256
+    signature over the raw request body (header ``X-Signature``) against the
+    shared ``sign_webhook_secret`` before mutating any state. Fail-closed: if
+    the secret is unset, the header is missing, or the signature doesn't
+    match, we reject with 401.
     """
+    secret = settings.sign_webhook_secret
+    if not secret:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Webhook signature verification not configured",
+        )
+
+    raw_body = await request.body()
+    provided_sig = request.headers.get("X-Signature")
+    if not provided_sig:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing webhook signature",
+        )
+
+    expected_sig = hmac.new(
+        secret.encode("utf-8"), raw_body, hashlib.sha256
+    ).hexdigest()
+    if not hmac.compare_digest(expected_sig, provided_sig):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid webhook signature",
+        )
+
+    try:
+        event = WebhookEvent.model_validate_json(raw_body)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=exc.errors(),
+        ) from exc
+
     stmt = select(SignRequest).where(SignRequest.external_id == event.external_id)
     sr = (await db.execute(stmt)).scalar_one_or_none()
     if sr is None:

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Integer, LargeBinary, String
+from sqlalchemy import ForeignKey, Integer, LargeBinary, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.utils import utc_now
@@ -18,6 +18,9 @@ class YjsUpdate(Base):
     """
 
     __tablename__ = "yjs_updates"
+    __table_args__ = (
+        UniqueConstraint("document_id", "seq", name="uq_yjs_update_doc_seq"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     document_id: Mapped[uuid.UUID] = mapped_column(

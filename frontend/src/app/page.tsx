@@ -176,7 +176,7 @@ function HeroMockup() {
               <p className="text-xs uppercase tracking-wider text-slate-400">
                 Document · v3
               </p>
-              <h3 className="mt-1 text-sm font-semibold">Release notes 1.2</h3>
+              <h2 className="mt-1 text-sm font-semibold">Release notes 1.2</h2>
               <div className="mt-2 space-y-1 text-xs text-slate-700">
                 <p>• Paragraph-level citations for every AI answer</p>
                 <p>• CRDT collaboration via y-websocket</p>

@@ -99,6 +99,7 @@ export default function OCRPage() {
                 id="ocr-file"
                 type="file"
                 accept="image/*"
+                aria-label="Image (PNG / JPG)"
                 onChange={onFile}
                 className="block text-sm file:mr-3 file:rounded file:border file:border-gray-200 file:bg-white file:px-3 file:py-1 file:text-sm"
               />
