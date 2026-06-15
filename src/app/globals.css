@@ -4,24 +4,97 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --foreground: #18181b;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* TipTap editor typography (no @tailwindcss/typography — styled manually). */
+.editor {
+  @apply text-[15px] leading-7 text-zinc-800;
+}
+
+.editor > * + * {
+  @apply mt-3;
+}
+
+.editor h1 {
+  @apply mt-8 text-2xl font-semibold tracking-tight text-zinc-900;
+}
+
+.editor h2 {
+  @apply mt-6 text-xl font-semibold tracking-tight text-zinc-900;
+}
+
+.editor h3 {
+  @apply mt-5 text-lg font-semibold text-zinc-900;
+}
+
+.editor h1:first-child,
+.editor h2:first-child,
+.editor h3:first-child {
+  @apply mt-0;
+}
+
+.editor p {
+  @apply text-zinc-800;
+}
+
+.editor ul {
+  @apply list-disc pl-6;
+}
+
+.editor ol {
+  @apply list-decimal pl-6;
+}
+
+.editor li {
+  @apply mt-1;
+}
+
+.editor li p {
+  @apply mt-0;
+}
+
+.editor blockquote {
+  @apply border-l-2 border-zinc-300 pl-4 italic text-zinc-600;
+}
+
+.editor code {
+  @apply rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[13px] text-zinc-800;
+}
+
+.editor pre {
+  @apply overflow-x-auto rounded-lg bg-zinc-900 p-4 text-zinc-100;
+}
+
+.editor pre code {
+  @apply bg-transparent p-0 text-[13px] text-zinc-100;
+}
+
+.editor hr {
+  @apply my-6 border-zinc-200;
+}
+
+.editor strong {
+  @apply font-semibold text-zinc-900;
+}
+
+.editor a {
+  @apply text-indigo-600 underline underline-offset-2;
+}
+
+.editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  @apply pointer-events-none float-left h-0 text-zinc-300;
 }
