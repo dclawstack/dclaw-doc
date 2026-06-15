@@ -13,13 +13,21 @@ export default async function AppLayout({
     <div className="flex min-h-screen flex-col bg-white text-zinc-900">
       <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2 text-sm font-semibold tracking-tight text-zinc-900"
-          >
-            <ShieldCheck className="h-5 w-5 text-indigo-600" />
-            Veridoc
-          </Link>
+          <div className="flex items-center gap-6">
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-2 text-sm font-semibold tracking-tight text-zinc-900"
+            >
+              <ShieldCheck className="h-5 w-5 text-indigo-600" />
+              Veridoc
+            </Link>
+            <Link
+              href="/usage"
+              className="text-sm text-zinc-500 hover:text-zinc-900"
+            >
+              Usage
+            </Link>
+          </div>
           <div className="text-sm text-zinc-500">{user?.name ?? "Guest"}</div>
         </div>
       </header>

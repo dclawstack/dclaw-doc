@@ -1,0 +1,45 @@
+{
+  "description": "Golden set for the Veridoc cited copilot. Each case seeds a document, asks a question, and asserts the answer contains expected substrings and at least one citation.",
+  "cases": [
+    {
+      "id": "retention-window",
+      "doc": {
+        "title": "Data Processing Agreement",
+        "text": "The processor shall retain personal data for no longer than 90 days after contract termination, after which all copies are securely deleted. Sub-processors must be approved in writing."
+      },
+      "question": "How long can personal data be retained after termination?",
+      "expectAny": ["90 day", "90-day", "ninety day"],
+      "requireCitation": true
+    },
+    {
+      "id": "breach-window",
+      "doc": {
+        "title": "Incident Response Policy",
+        "text": "Data breaches must be reported to the controller within 24 hours of detection. The security team owns triage and notification."
+      },
+      "question": "What is the breach notification deadline?",
+      "expectAny": ["24 hour", "24-hour", "twenty-four"],
+      "requireCitation": true
+    },
+    {
+      "id": "diagnosis",
+      "doc": {
+        "title": "Patient Record",
+        "text": "Patient Jordan Rivera. Primary diagnosis: hypertension. Prescribed lisinopril 10mg daily. Allergies: penicillin."
+      },
+      "question": "What is the patient's primary diagnosis and prescription?",
+      "expectAny": ["hypertension"],
+      "requireCitation": true
+    },
+    {
+      "id": "refusal",
+      "doc": {
+        "title": "Office Policy",
+        "text": "The office is open Monday to Friday, 9am to 5pm. Visitors must sign in at the front desk."
+      },
+      "question": "What is the company's revenue last quarter?",
+      "expectAny": ["not", "no ", "couldn't", "cannot", "doesn't", "does not"],
+      "requireCitation": false
+    }
+  ]
+}
