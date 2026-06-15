@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Search } from "lucide-react";
+import { Loader2, Plus, Search, Upload } from "lucide-react";
 import { DocTable, type DocRow } from "@/components/DocTable";
 
 export function DashboardDocs({
@@ -20,7 +20,9 @@ export function DashboardDocs({
   const [total, setTotal] = useState(initialTotal);
   const [searching, setSearching] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   // Keep in sync when the server re-renders (folder change, refresh).
   useEffect(() => {
@@ -76,6 +78,25 @@ export function DashboardDocs({
     }
   }
 
+  async function importMarkdown(file: File) {
+    setImporting(true);
+    try {
+      const content = await file.text();
+      const res = await fetch("/api/imports/markdown", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content, folderId: folderId ?? null }),
+      });
+      if (res.ok) {
+        const doc: { id: string } = await res.json();
+        router.push(`/docs/${doc.id}`);
+        return;
+      }
+    } finally {
+      setImporting(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
@@ -92,6 +113,30 @@ export function DashboardDocs({
             <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-400" />
           )}
         </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".md,.markdown,.txt,text/markdown,text/plain"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) importMarkdown(f);
+            e.target.value = "";
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={importing}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-600 shadow-sm hover:bg-zinc-50 disabled:opacity-60"
+        >
+          {importing ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Upload className="h-4 w-4" />
+          )}
+          Import
+        </button>
         <button
           type="button"
           onClick={createDocument}

@@ -22,6 +22,12 @@ export default async function AppLayout({
               Veridoc
             </Link>
             <Link
+              href="/templates"
+              className="text-sm text-zinc-500 hover:text-zinc-900"
+            >
+              Templates
+            </Link>
+            <Link
               href="/usage"
               className="text-sm text-zinc-500 hover:text-zinc-900"
             >

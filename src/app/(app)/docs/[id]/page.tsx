@@ -9,6 +9,8 @@ import { StatusBadge, type DocStatus } from "@/components/StatusBadge";
 import { SensitivityBadge, type Sensitivity } from "@/components/SensitivityBadge";
 import { TrustPanel } from "@/components/TrustPanel";
 import { CopilotPanel } from "@/components/CopilotPanel";
+import { CommentsPanel } from "@/components/CommentsPanel";
+import { ExportMenu } from "@/components/ExportMenu";
 
 type Doc = {
   id: string;
@@ -21,7 +23,7 @@ type Doc = {
 
 type SaveState = "idle" | "saving" | "saved";
 type Pending = { title?: string; contentJson?: unknown; contentMd?: string };
-type Tab = "copilot" | "trust";
+type Tab = "copilot" | "trust" | "comments";
 
 export default function DocPage() {
   const { id } = useParams<{ id: string }>();
@@ -192,6 +194,7 @@ export default function DocPage() {
             )}
             Scan sensitivity
           </button>
+          <ExportMenu docId={id} />
           <Link
             href={`/docs/${id}/history`}
             className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs font-medium text-zinc-600 shadow-sm hover:bg-zinc-50 hover:text-zinc-900"
@@ -229,27 +232,22 @@ export default function DocPage() {
       <div className="hidden w-80 shrink-0 lg:block">
         <div className="sticky top-20 flex h-[calc(100vh-7rem)] flex-col rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex gap-1 rounded-lg bg-zinc-100 p-0.5 text-xs font-medium">
-            <button
-              onClick={() => setTab("copilot")}
-              className={`flex-1 rounded-md py-1.5 ${
-                tab === "copilot" ? "bg-white shadow-sm" : "text-zinc-500"
-              }`}
-            >
-              Copilot
-            </button>
-            <button
-              onClick={() => setTab("trust")}
-              className={`flex-1 rounded-md py-1.5 ${
-                tab === "trust" ? "bg-white shadow-sm" : "text-zinc-500"
-              }`}
-            >
-              Trust
-            </button>
+            {(["copilot", "trust", "comments"] as Tab[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`flex-1 rounded-md py-1.5 capitalize ${
+                  tab === t ? "bg-white shadow-sm" : "text-zinc-500"
+                }`}
+              >
+                {t}
+              </button>
+            ))}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {tab === "copilot" ? (
-              <CopilotPanel />
-            ) : (
+            {tab === "copilot" && <CopilotPanel />}
+            {tab === "comments" && <CommentsPanel docId={id} />}
+            {tab === "trust" && (
               <TrustPanel
                 docId={id}
                 sensitivity={sensitivity}

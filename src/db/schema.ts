@@ -217,6 +217,56 @@ export const notarizations = pgTable("notarizations", {
     .defaultNow(),
 });
 
+// ---------- templates & comments ----------
+
+// A reusable document template. `variablesSchema` is a JSON array of
+// {name, label?, default?}; `contentMd` may use {{name}} placeholders that the
+// render endpoint substitutes when creating a document.
+export const templates = pgTable(
+  "templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    contentMd: text("content_md").notNull().default(""),
+    variablesSchema: jsonb("variables_schema").notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("template_ws_name_unique").on(t.workspaceId, t.name)]
+);
+
+// Threaded inline comment anchored to a document block. `parentId` makes it a
+// reply; `anchorBlockId` is an opaque editor handle; `resolvedAt` tracks resolve.
+export const comments = pgTable(
+  "comments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    parentId: uuid("parent_id"),
+    anchorBlockId: text("anchor_block_id"),
+    body: text("body").notNull(),
+    authorId: text("author_id").notNull(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("comments_doc_idx").on(t.documentId)]
+);
+
 // ---------- metering ----------
 
 export const aiUsage = pgTable(
