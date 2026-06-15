@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { httpError, withErrors } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
 import { getOwnedDocument } from "@/lib/documents";
+import { reindexDocument } from "@/lib/ai/chunk";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,6 +75,20 @@ export const PATCH = withErrors(async (req, { params }) => {
       contentMd: nextMd,
       createdBy: user.id,
     });
+
+    // Re-index for RAG. Best-effort: AI may be unconfigured or down, and a
+    // failed embedding must never fail the user's save.
+    try {
+      await reindexDocument({
+        documentId: doc.id,
+        workspaceId: workspace.id,
+        title: nextTitle,
+        contentJson: nextJson,
+        contentMd: nextMd ?? null,
+      });
+    } catch (err) {
+      console.error("reindex failed", err);
+    }
   }
 
   await logAudit({
