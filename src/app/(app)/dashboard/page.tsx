@@ -4,7 +4,6 @@ import { db } from "@/db";
 import { documents, folders } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { ensureDefaultWorkspace } from "@/lib/workspace";
-import { seedWorkspaceIfEmpty } from "@/lib/seed";
 import { FolderSidebar } from "@/components/FolderSidebar";
 import { DashboardDocs } from "@/components/DashboardDocs";
 import type { DocRow } from "@/components/DocTable";
@@ -19,7 +18,6 @@ export default async function DashboardPage({
   const user = await getCurrentUser();
   if (!user) redirect("/handler/sign-in");
   const workspace = await ensureDefaultWorkspace(user);
-  await seedWorkspaceIfEmpty(workspace, user.id);
   const folderId = searchParams.folderId;
 
   const conditions: SQL[] = [
