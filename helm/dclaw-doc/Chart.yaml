@@ -1,5 +1,0 @@
-apiVersion: v2
-name: dclaw-doc
-description: "DClaw Doc — Smart documents & collaborative editing"
-version: 0.1.0
-appVersion: 0.1.0
